@@ -1,26 +1,135 @@
 @import "tailwindcss";
 
+/* --- Dear Days background tokens --- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* soft glows */
+  --bgGlow1: rgba(56, 189, 248, 0.18); /* sky-400 */
+  --bgGlow2: rgba(244, 114, 182, 0.14); /* pink-400 */
+
+  /* icon colors (AA-friendly tints on white) */
+  --cBalloon: #0ea5e9; /* sky-500 */
+  --cBalloon2: #14b8a6; /* teal-500 */
+  --cGift: #f59e0b; /* amber-500 */
+  --cGift2: #ef4444; /* red-500 */
+  --cRings: #8b5cf6; /* violet-500 */
+  --cCake: #22c55e; /* green-500 */
+  --cCalendar: #ec4899; /* pink-500 */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/* dark mode tweaks */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bgGlow1: rgba(56, 189, 248, 0.1);
+    --bgGlow2: rgba(244, 114, 182, 0.1);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Floating animation (gentle vertical bob + slow drift) */
+@keyframes dd-float {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0) rotate(2deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+}
+@keyframes dd-drift {
+  0% {
+    transform: translateX(-6px);
+  }
+  50% {
+    transform: translateX(6px);
+  }
+  100% {
+    transform: translateX(-6px);
+  }
+}
+
+/* combine with staggered delays using CSS variables */
+.animate-float {
+  animation: dd-float 6.5s ease-in-out infinite,
+    dd-drift 15s ease-in-out infinite var(--delay, 0s);
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float {
+    animation: none !important;
+  }
+}
+
+/* Pastel blob animation */
+.dd-blob {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  filter: blur(22px);
+  opacity: var(--op, 0.28);
+  background: radial-gradient(
+    35% 35% at 50% 50%,
+    var(--c1, #ffe7ee) 0%,
+    var(--c2, #e6f0ff) 100%
+  );
+  will-change: transform;
+  animation: dd-blob-move var(--dur, 24s) ease-in-out var(--delay, 0s) infinite;
+}
+@keyframes dd-blob-move {
+  0% {
+    transform: translate3d(var(--tx, 0), var(--ty, 0), 0) scale(var(--scale, 1))
+      rotate(0deg);
+  }
+  50% {
+    transform: translate3d(calc(var(--tx, 0) * -1), calc(var(--ty, 0) * -1), 0)
+      scale(calc(var(--scale, 1) * 1.04)) rotate(6deg);
+  }
+  100% {
+    transform: translate3d(var(--tx, 0), var(--ty, 0), 0) scale(var(--scale, 1))
+      rotate(0deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dd-blob {
+    animation: none !important;
+  }
+}
+
+/* gentle float  Occasions*/
+@keyframes dd-float {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+.animate-dd-float {
+  animation: dd-float 9s ease-in-out infinite var(--delay, 0s);
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-dd-float {
+    animation: none !important;
+  }
+}
+
+/* visibility without blur: slight drop-shadow + higher opacity */
+.dd-icon {
+  opacity: 0.3; /* raise to ~0.36 if you want even stronger */
+  filter: drop-shadow(0 8px 18px rgba(2, 6, 23, 0.1)); /* slate-950 @ 10% */
+}
+@media (min-width: 768px) {
+  .dd-icon {
+    opacity: 0.36;
+    filter: drop-shadow(0 10px 22px rgba(2, 6, 23, 0.12));
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .dd-icon {
+    filter: drop-shadow(0 8px 18px rgba(255, 255, 255, 0.08));
+  }
 }
