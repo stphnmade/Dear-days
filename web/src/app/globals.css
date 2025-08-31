@@ -97,6 +97,7 @@
 }
 
 /* gentle float  Occasions*/
+/* gentle float */
 @keyframes dd-float {
   0% {
     transform: translate3d(0, 0, 0);
@@ -109,7 +110,7 @@
   }
 }
 .animate-dd-float {
-  animation: dd-float 9s ease-in-out infinite var(--delay, 0s);
+  animation: dd-float 4s ease-in-out infinite var(--delay, 0s);
 }
 @media (prefers-reduced-motion: reduce) {
   .animate-dd-float {
@@ -117,19 +118,81 @@
   }
 }
 
-/* visibility without blur: slight drop-shadow + higher opacity */
+/* clear, visible icons without blur */
 .dd-icon {
-  opacity: 0.3; /* raise to ~0.36 if you want even stronger */
-  filter: drop-shadow(0 8px 18px rgba(2, 6, 23, 0.1)); /* slate-950 @ 10% */
+  opacity: 0.6;
+  filter: drop-shadow(0 8px 18px rgba(2, 6, 23, 0.1));
 }
 @media (min-width: 768px) {
   .dd-icon {
-    opacity: 0.36;
+    opacity: 0.6;
     filter: drop-shadow(0 10px 22px rgba(2, 6, 23, 0.12));
   }
 }
 @media (prefers-color-scheme: dark) {
   .dd-icon {
     filter: drop-shadow(0 8px 18px rgba(255, 255, 255, 0.08));
+  }
+}
+
+/* Soft ambient shimmer for glass surfaces */
+@keyframes dd-ambient {
+  0% {
+    --x1: 20%;
+    --y1: 0%;
+    --x2: 80%;
+    --y2: 100%;
+  }
+  50% {
+    --x1: 60%;
+    --y1: 20%;
+    --x2: 40%;
+    --y2: 80%;
+  }
+  100% {
+    --x1: 20%;
+    --y1: 0%;
+    --x2: 80%;
+    --y2: 100%;
+  }
+}
+
+/* shared gradient used by the overlay */
+.dd-ambient {
+  /* two very soft radial glows that drift */
+  background: radial-gradient(
+      120% 80% at var(--x1, 20%) var(--y1, 0%),
+      rgba(244, 114, 182, 0.14),
+      transparent 60%
+    ),
+    /* rose-500 */
+      radial-gradient(
+        120% 80% at var(--x2, 80%) var(--y2, 100%),
+        rgba(56, 189, 248, 0.12),
+        transparent 60%
+      ); /* sky-500 */
+  background-size: 200% 200%;
+  animation: dd-ambient 18s ease-in-out infinite alternate;
+}
+
+@media (prefers-color-scheme: dark) {
+  .dd-ambient {
+    /* a touch dimmer in dark mode */
+    background: radial-gradient(
+        120% 80% at var(--x1, 20%) var(--y1, 0%),
+        rgba(244, 114, 182, 0.1),
+        transparent 60%
+      ),
+      radial-gradient(
+        120% 80% at var(--x2, 80%) var(--y2, 100%),
+        rgba(56, 189, 248, 0.08),
+        transparent 60%
+      );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dd-ambient {
+    animation: none !important;
   }
 }

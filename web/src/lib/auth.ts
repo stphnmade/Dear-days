@@ -1,15 +1,15 @@
-import { PrismaAdapter } from "@auth/prisma-adapter";
-import type { NextAuthOptions } from "next-auth";
+import { NextAuthOptions } from "next-auth";
 import Google from "next-auth/providers/google";
-import { prisma } from "@/lib/db";
+
+const isDev = process.env.NODE_ENV !== "production";
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
-  session: { strategy: "jwt" },
+  // ...
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: isDev, // ✅ dev convenience
       authorization: {
         params: {
           scope: process.env.GOOGLE_OAUTH_SCOPES!,
@@ -19,10 +19,4 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  callbacks: {
-    async session({ session, token }) {
-      if (token?.sub) (session.user as any).id = token.sub;
-      return session;
-    },
-  },
 };

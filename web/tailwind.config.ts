@@ -1,15 +1,12 @@
 import type { Config } from "tailwindcss";
 
-const config: Config = {
+export default {
+  darkMode: "class",
   content: [
     "./src/app/**/*.{ts,tsx,mdx}",
     "./src/components/**/*.{ts,tsx,mdx}",
-    "./src/ui/**/*.{ts,tsx,mdx}", // ← important for PastelBlobsBg.tsx
+    "./src/ui/**/*.{ts,tsx,mdx}",
   ],
-  theme: {
-    extend: {},
-  },
+  theme: { extend: {} },
   plugins: [],
-};
-
-export default config;
+} satisfies Config;
