@@ -44,9 +44,6 @@ importers:
       next-auth:
         specifier: ^4.24.11
         version: 4.24.11(@auth/core@0.40.0)(next@15.5.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      prisma:
-        specifier: ^6.15.0
-        version: 6.15.0(typescript@5.9.2)
       react:
         specifier: 19.1.0
         version: 19.1.0
@@ -81,6 +78,9 @@ importers:
       eslint-config-next:
         specifier: 15.5.2
         version: 15.5.2(eslint@9.34.0(jiti@2.5.1))(typescript@5.9.2)
+      prisma:
+        specifier: ^6.15.0
+        version: 6.15.0(typescript@5.9.2)
       prisma-json-types-generator:
         specifier: ^3.6.0
         version: 3.6.0(@prisma/client@6.15.0(prisma@6.15.0(typescript@5.9.2))(typescript@5.9.2))(prisma@6.15.0(typescript@5.9.2))(typescript@5.9.2)
