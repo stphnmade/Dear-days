@@ -1,87 +1,261 @@
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-// Update the import path below to the correct location of authOptions:
-// Update the import path below to the correct location of authOptions:
-import { authOptions } from "@/lib/auth"; // ✅ not from the route path
-import { prisma } from "@/lib/db";
-// If your prisma client is located elsewhere, update the path accordingly.
-// Example: import { prisma } from "../../../lib/db";
+import { authOptions } from "@/lib/auth";
+import Image from "next/image";
 import Link from "next/link";
+import GlassCard from "@/ui/GlassCard";
+import DarkModeToggle from "@/ui/DarkModeToggle";
+import OccasionIconsBg from "@/ui/OccasionIconsBg";
+import { getUpcomingEvents, getCounts } from "@/lib/queries";
 
-async function ensureFamily() {
-  // call API from server (local fetch)
-  await fetch(
-    `${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/api/family/ensure`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      cache: "no-store",
-    }
-  );
+function formatDate(d: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(d);
 }
 
 export default async function Dashboard() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return (
-      <main className="p-8">
-        <p>
-          Please <Link href="/">sign in</Link>.
-        </p>
-      </main>
-    );
-  }
+  if (!session?.user) redirect("/");
 
-  // Make sure there is a family (best moved to a one-time action later)
-  await ensureFamily();
+  const userId = (session.user as any).id as string | undefined;
+  const name = session.user.name ?? "Friend";
+  const avatar = session.user.image ?? undefined;
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    include: {
-      families: { include: { family: true } },
-      events: { orderBy: { date: "asc" } },
-    },
-  });
+  // If you haven't linked models yet, you can temporarily replace
+  // these calls with mock arrays/counters.
+  let upcoming = [] as Array<{
+    id: string;
+    title: string;
+    date: Date;
+    type?: string;
+    personName?: string;
+  }>;
+  let counts = { events: 0, families: 0, accounts: 0 };
 
-  const days = await prisma.specialDay.findMany({
-    where: { familyId: user?.families?.[0]?.familyId },
-    orderBy: { date: "asc" },
-    take: 25,
-  });
-
-  async function SyncButton() {
-    // client-less progressive enhancement: server action via route
-    return (
-      <form action="/api/sync/run" method="post">
-        <button className="border rounded px-3 py-2">
-          Sync Google birthdays
-        </button>
-      </form>
-    );
+  try {
+    if (userId) {
+      [upcoming, counts] = await Promise.all([
+        getUpcomingEvents(userId, 6),
+        getCounts(userId),
+      ]);
+    }
+  } catch (e) {
+    // non-fatal: show empty states gracefully
+    console.error("dashboard data error", e);
   }
 
   return (
-    <main className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <SyncButton />
+    <main className="relative min-h-screen">
+      {/* soft celebratory background */}
+      <OccasionIconsBg />
+
+      {/* top bar */}
+      <div className="relative z-10 mx-auto max-w-6xl px-6 pt-10 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          {avatar ? (
+            <Image
+              src={avatar}
+              alt={name}
+              width={40}
+              height={40}
+              className="rounded-full"
+            />
+          ) : (
+            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-rose-300 to-violet-300" />
+          )}
+          <div>
+            <div className="text-sm text-slate-500 dark:text-slate-400">
+              Welcome back
+            </div>
+            <div className="text-lg font-semibold">{name}</div>
+          </div>
+        </div>
+        <DarkModeToggle />
       </div>
 
-      <section className="space-y-2">
-        <h2 className="font-medium">Upcoming Special Days</h2>
-        <ul className="divide-y">
-          {days.length === 0 && (
-            <li className="py-2 text-sm text-gray-500">
-              No days yet. Try syncing.
-            </li>
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-20">
+        {/* next celebrations chips */}
+        <div className="mt-8 flex flex-wrap gap-2">
+          {upcoming.length > 0 ? (
+            upcoming.slice(0, 3).map((ev) => (
+              <span
+                key={ev.id}
+                className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm
+                           bg-white/70 dark:bg-slate-900/60 border border-white/60 dark:border-white/10
+                           backdrop-blur-md shadow-sm"
+              >
+                <span className="i">🎉</span>
+                <span className="font-medium">
+                  {ev.title ?? ev.personName ?? "Special Day"}
+                </span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  {formatDate(new Date(ev.date))}
+                </span>
+              </span>
+            ))
+          ) : (
+            <span className="text-sm text-slate-600 dark:text-slate-300">
+              No celebrations yet — let’s add your first one below.
+            </span>
           )}
-          {days.map((d) => (
-            <li key={d.id} className="py-2 flex justify-between">
-              <span>{d.title}</span>
-              <span>{new Date(d.date).toDateString()}</span>
-            </li>
-          ))}
-        </ul>
+        </div>
+
+        {/* grid */}
+        <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {/* Upcoming */}
+          <GlassCard accent="violet" className="text-left">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Upcoming</h2>
+              <Link
+                href="/events"
+                className="text-sm text-violet-700 dark:text-violet-300 hover:underline"
+              >
+                View all
+              </Link>
+            </div>
+            <div className="mt-4 space-y-3">
+              {upcoming.length ? (
+                upcoming.map((ev) => (
+                  <div
+                    key={ev.id}
+                    className="flex items-center justify-between rounded-xl bg-white/60 dark:bg-slate-900/40 border border-white/50 dark:border-white/10 px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">
+                        {ev.title ?? ev.personName ?? "Special Day"}
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {ev.type ?? "Occasion"} ·{" "}
+                        {formatDate(new Date(ev.date))}
+                      </div>
+                    </div>
+                    <button className="text-sm rounded-lg px-3 py-1.5 bg-violet-500/90 text-white hover:bg-violet-500">
+                      Send card
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <EmptyList
+                  title="No upcoming events"
+                  hint="Add birthdays, anniversaries, or import from Google Calendar."
+                  action={{ label: "Add special day", href: "/events/new" }}
+                />
+              )}
+            </div>
+          </GlassCard>
+
+          {/* Family */}
+          <GlassCard accent="rose" className="text-left">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Family</h2>
+              <Link
+                href="/family"
+                className="text-sm text-rose-700 dark:text-rose-300 hover:underline"
+              >
+                Manage
+              </Link>
+            </div>
+            <div className="mt-4">
+              {counts.families > 0 ? (
+                <div className="text-sm text-slate-700 dark:text-slate-300">
+                  {counts.families} member{counts.families > 1 ? "s" : ""}{" "}
+                  connected.
+                </div>
+              ) : (
+                <EmptyList
+                  title="No family added"
+                  hint="Invite relatives to share dates and sync calendars."
+                  action={{ label: "Invite family", href: "/family/invite" }}
+                />
+              )}
+            </div>
+          </GlassCard>
+
+          {/* Calendars */}
+          <GlassCard
+            accent="sky"
+            className="text-left xl:col-span-1 md:col-span-2 xl:col-span-1"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Calendars</h2>
+              <Link
+                href="/settings/connections"
+                className="text-sm text-sky-700 dark:text-sky-300 hover:underline"
+              >
+                Settings
+              </Link>
+            </div>
+            <div className="mt-4">
+              {counts.accounts > 0 ? (
+                <div className="text-sm text-slate-700 dark:text-slate-300">
+                  Google Calendar connected.
+                </div>
+              ) : (
+                <EmptyList
+                  title="No calendar linked"
+                  hint="Connect Google to auto-import birthdays & anniversaries."
+                  action={{
+                    label: "Connect Google",
+                    href: "/calendar/google/connect",
+                  }}
+                />
+              )}
+            </div>
+          </GlassCard>
+        </div>
+
+        {/* quick actions */}
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link
+            href="/events/new"
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-white bg-gradient-to-r from-rose-400 via-pink-400 to-violet-400 hover:from-rose-500 hover:via-pink-500 hover:to-violet-500 shadow-md"
+          >
+            ➕ Add special day
+          </Link>
+          <Link
+            href="/family/invite"
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 border border-rose-200/70 dark:border-white/10 text-rose-700 hover:bg-rose-50 dark:text-rose-200 dark:hover:bg-white/5"
+          >
+            ✉️ Invite family
+          </Link>
+          <Link
+            href="/calendar/google/connect"
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 border border-sky-200/70 dark:border-white/10 text-sky-700 hover:bg-sky-50 dark:text-sky-200 dark:hover:bg-white/5"
+          >
+            🔗 Sync Google
+          </Link>
+        </div>
       </section>
     </main>
+  );
+}
+
+function EmptyList({
+  title,
+  hint,
+  action,
+}: {
+  title: string;
+  hint: string;
+  action?: { label: string; href: string };
+}) {
+  return (
+    <div className="rounded-2xl border border-white/50 dark:border-white/10 bg-white/50 dark:bg-slate-900/40 px-6 py-10 text-center">
+      <div className="font-medium">{title}</div>
+      <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        {hint}
+      </div>
+      {action && (
+        <Link
+          href={action.href}
+          className="mt-4 inline-flex items-center rounded-xl px-4 py-2 text-white bg-slate-900/80 dark:bg-white/15 hover:opacity-90"
+        >
+          {action.label}
+        </Link>
+      )}
+    </div>
   );
 }
