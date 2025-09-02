@@ -8,38 +8,45 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(cuid())
+  id            String    @id @default(cuid())
   name          String?
-  email         String?        @unique
-  emailVerified DateTime? // ✅ REQUIRED by PrismaAdapter
+  email         String?   @unique
+  emailVerified DateTime?
   image         String?
-  accounts      Account[]
-  families      FamilyMember[]
-  events        SpecialDay[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+
+  accounts Account[]
+  events   SpecialDay[] @relation("UserEvents")
+
+  // backref for owned families
+  familiesOwned Family[] @relation("FamiliesOwned")
+
+  // backref for linked members
+  joinedMemberships FamilyMember[] @relation("JoinedUser")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Account {
-  id                String  @id @default(cuid())
+  id                String @id @default(cuid())
   userId            String
   type              String
   provider          String
   providerAccountId String
 
-  access_token      String?
-  refresh_token     String?
-  expires_at        Int?
-  scope             String?
-  token_type        String?
-  id_token          String?
-  session_state     String?
+  access_token  String?
+  refresh_token String?
+  expires_at    Int?
+  scope         String?
+  token_type    String?
+  id_token      String?
+  session_state String?
 
-  refresh_token_expires_in Int?  
+  refresh_token_expires_in Int?
 
-  resourceId        String?
-  channelId         String?
-  webhookSecret     String?
+  resourceId    String?
+  channelId     String?
+  webhookSecret String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -47,38 +54,67 @@ model Account {
 }
 
 model Family {
-  id          String         @id @default(cuid())
-  name        String
-  slug        String         @unique
+  id   String @id @default(cuid())
+  name String
+  slug String @unique
+
+  // 👇 Relation to owner (ensure this exists)
+  owner   User   @relation("FamiliesOwned", fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId String // recommended (schema-side)
+
   members     FamilyMember[]
-  specialDays SpecialDay[]
-  createdAt   DateTime       @default(now())
-}
+  specialDays SpecialDay[]   @relation("FamilyEvents")
 
-model FamilyMember {
-  id       String @id @default(cuid())
-  familyId String
-  userId   String
-  role     String // owner | member
-
-  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([familyId, userId])
-}
-
-model SpecialDay {
-  id        String   @id @default(cuid())
-  familyId  String
-  userId    String?
-  title     String
-  date      DateTime
-  type      String // birthday | anniversary | custom
-  source    String // manual | google | microsoft | ics
-  sourceId  String?  @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([ownerId])
+}
+
+model FamilyMember {
+  id           String   @id @default(cuid())
+  familyId     String
+  joinedUserId String?
+  email        String?
+  name         String
+  relation     String?
+  color        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
   family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  user   User?  @relation(fields: [userId], references: [id])
+  user   User?  @relation("JoinedUser", fields: [joinedUserId], references: [id])
+
+  @@unique([familyId, joinedUserId])
+  @@index([familyId])
+}
+
+model SpecialDay {
+  id       String  @id @default(cuid())
+  familyId String?
+  userId   String?
+
+  title     String
+  type      String
+  date      DateTime
+  person    String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  family Family? @relation("FamilyEvents", fields: [familyId], references: [id], onDelete: Cascade)
+  user   User?   @relation("UserEvents", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([userId])
+}
+
+model Invitation {
+  id        String   @id @default(cuid())
+  inviterId String
+  email     String?
+  token     String   @unique
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  expiresAt DateTime @default(dbgenerated("(DATETIME('now', '+14 days'))"))
 }

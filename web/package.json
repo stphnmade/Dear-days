@@ -6,12 +6,20 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:validate": "prisma validate --schema prisma/schema.prisma",
+    "db:format": "prisma format --schema prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema prisma/schema.prisma",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:studio": "prisma studio --schema prisma/schema.prisma",
+    "db:reset": "prisma migrate reset --force --skip-seed --schema prisma/schema.prisma",
+    "dev:clean": "rm -rf .next node_modules/.prisma && pnpm db:generate && pnpm dev"
   },
+  "postinstall": "prisma generate --schema prisma/schema.prisma",
   "dependencies": {
     "@auth/core": "^0.40.0",
     "@auth/prisma-adapter": "^2.10.0",
-    "@prisma/client": "^6.15.0",
+    "@prisma/client": "6.15.0",
     "@upstash/qstash": "^2.8.2",
     "@upstash/redis": "^1.35.3",
     "axios": "^1.11.0",
@@ -35,7 +43,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
-    "prisma": "^6.15.0",
+    "prisma": "6.15.0",
     "prisma-json-types-generator": "^3.6.0",
     "tailwindcss": "^4",
     "typescript": "^5"
