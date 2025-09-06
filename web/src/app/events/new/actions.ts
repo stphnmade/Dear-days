@@ -1,32 +1,50 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { redirect } from "next/navigation";
+import { prisma } from "@/lib/db";
+import { specialDaySchema } from "@/lib/validation"; // you added earlier
 
-export async function createSpecialDay(formData: FormData) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) redirect("/");
+const assertUserId = async (): Promise<string> => {
+  const s = await getServerSession(authOptions);
+  if (!s?.user) throw new Error("Unauthorized");
+  return (s.user as any).id as string;
+};
 
-  const userId = (session.user as any).id!;
-  const title = String(formData.get("title") || "").trim();
-  const type = String(formData.get("type") || "other");
-  const date = new Date(String(formData.get("date"))); // YYYY-MM-DD
+export async function deleteEvent(id: string) {
+  await assertUserId();
+  await prisma.specialDay.delete({ where: { id } });
+  revalidatePath("/dashboard");
+}
 
-  if (!title || isNaN(date.getTime())) {
-    throw new Error("Please provide a title and a valid date.");
-  }
+export async function updateEvent(formData: FormData) {
+  const userId = await assertUserId();
+  const id = String(formData.get("id"));
+  const parsed = specialDaySchema.safeParse({
+    title: formData.get("title"),
+    type: formData.get("type") || "other",
+    date: formData.get("date"),
+    person: formData.get("person") || null,
+    notes: formData.get("notes") || null,
+  });
+  if (!parsed.success)
+    throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
 
-  await prisma.specialDay.create({
+  const { title, type, date, person, notes } = parsed.data;
+  const dt = new Date(date);
+
+  await prisma.specialDay.update({
+    where: { id },
     data: {
       userId,
       title,
       type,
-      date,
-      notes: String(formData.get("notes") || ""),
+      date: dt,
+      person: person || undefined,
+      notes: notes || undefined,
     },
   });
 
-  redirect("/dashboard");
+  revalidatePath("/dashboard");
 }
