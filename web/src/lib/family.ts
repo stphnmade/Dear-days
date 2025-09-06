@@ -8,39 +8,36 @@ function slugify(s: string) {
     .replace(/(^-|-$)/g, "");
 }
 
-/** Find the family owned by this user (relation filter; no ownerId scalar needed in TS). */
+/** Find the family owned by this user (nullable). */
 export async function getOwnedFamily(userId: string) {
   return prisma.family.findFirst({
-    where: { owner: { id: userId } }, // ✅ relation filter
-    select: { id: true, name: true, slug: true },
-  });
+    where: { owner: { id: userId } },
+  }); // -> Family | null
 }
 
-/** Get owned family id or null. */
-export async function getOwnedFamilyId(userId: string) {
-  const fam = await getOwnedFamily(userId);
-  return fam?.id ?? null;
-}
-
-/** Create default family if missing (use relation connect; no ownerId in TS). */
+/** Ensure an owned family exists; return the full Family (never null). */
 export async function getOrCreateDefaultFamily(
   userId: string,
   name = "My Family"
 ) {
+  // Return the full row directly so TS knows it's Family, not {id}|null
   const existing = await prisma.family.findFirst({
-    where: { owner: { id: userId } }, // ✅ relation filter
-    select: { id: true },
+    where: { owner: { id: userId } },
   });
-  if (existing) {
-    return prisma.family.findUnique({ where: { id: existing.id } });
-  }
+  if (existing) return existing; // -> Family
 
   const slug = `${slugify(name)}-${userId.slice(0, 6)}`;
   return prisma.family.create({
     data: {
       name,
       slug,
-      owner: { connect: { id: userId } }, // ✅ relation connect (works even if unchecked ownerId type isn't present)
+      owner: { connect: { id: userId } },
     },
-  });
+  }); // -> Family
+}
+
+/** Always return the owned family ID (never null). */
+export async function ensureOwnedFamilyId(userId: string) {
+  const fam = await getOrCreateDefaultFamily(userId);
+  return fam.id; // string
 }
