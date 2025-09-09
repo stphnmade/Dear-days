@@ -1,38 +1,43 @@
+// src/app/dashboard/page.tsx
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import Image from "next/image";
 import Link from "next/link";
+
+import { getAuthSession } from "@/lib/auth";
+import { getUpcomingEvents, getCounts } from "@/lib/queries";
+
 import GlassCard from "@/ui/GlassCard";
 import DarkModeToggle from "@/ui/DarkModeToggle";
 import OccasionIconsBg from "@/ui/OccasionIconsBg";
-import { getUpcomingEvents, getCounts } from "@/lib/queries";
+import SubmitButton from "@/ui/SubmitButton";
 
-function formatDate(d: Date) {
-  return new Intl.DateTimeFormat("en-US", {
+import { quickAddSpecialDay } from "./actions"; // server action we added earlier
+
+const fmtDate = (d: Date | string) =>
+  new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
-  }).format(d);
-}
+  }).format(new Date(d));
 
 export default async function Dashboard() {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthSession();
   if (!session?.user) redirect("/");
 
   const userId = (session.user as any).id as string | undefined;
   const name = session.user.name ?? "Friend";
   const avatar = session.user.image ?? undefined;
 
-  // If you haven't linked models yet, you can temporarily replace
-  // these calls with mock arrays/counters.
-  let upcoming = [] as Array<{
+  let upcoming: Array<{
     id: string;
-    title: string;
+    title: string | null;
     date: Date;
-    type?: string;
-    personName?: string;
-  }>;
+    type?: string | null;
+    person?: string | null;
+    notes?: string | null;
+    familyId?: string | null;
+    userId?: string | null;
+  }> = [];
   let counts = { events: 0, families: 0, accounts: 0 };
 
   try {
@@ -87,12 +92,12 @@ export default async function Dashboard() {
                            bg-white/70 dark:bg-slate-900/60 border border-white/60 dark:border-white/10
                            backdrop-blur-md shadow-sm"
               >
-                <span className="i">🎉</span>
+                <span aria-hidden>🎉</span>
                 <span className="font-medium">
-                  {ev.title ?? ev.personName ?? "Special Day"}
+                  {ev.title ?? ev.person ?? "Special Day"}
                 </span>
                 <span className="text-slate-500 dark:text-slate-400">
-                  {formatDate(new Date(ev.date))}
+                  {fmtDate(ev.date)}
                 </span>
               </span>
             ))
@@ -116,6 +121,7 @@ export default async function Dashboard() {
                 View all
               </Link>
             </div>
+
             <div className="mt-4 space-y-3">
               {upcoming.length ? (
                 upcoming.map((ev) => (
@@ -125,11 +131,10 @@ export default async function Dashboard() {
                   >
                     <div className="min-w-0">
                       <div className="truncate font-medium">
-                        {ev.title ?? ev.personName ?? "Special Day"}
+                        {ev.title ?? ev.person ?? "Special Day"}
                       </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {ev.type ?? "Occasion"} ·{" "}
-                        {formatDate(new Date(ev.date))}
+                        {ev.type ?? "Occasion"} · {fmtDate(ev.date)}
                       </div>
                     </div>
                     <button className="text-sm rounded-lg px-3 py-1.5 bg-violet-500/90 text-white hover:bg-violet-500">
@@ -145,6 +150,42 @@ export default async function Dashboard() {
                 />
               )}
             </div>
+
+            {/* Quick add (server action) */}
+            <form
+              action={quickAddSpecialDay}
+              className="mt-5 grid gap-2 sm:grid-cols-2"
+            >
+              <input
+                name="title"
+                placeholder="e.g., Mom’s Birthday"
+                className="rounded-xl border px-3 py-2"
+                required
+              />
+              <select name="type" className="rounded-xl border px-3 py-2">
+                <option value="birthday">Birthday</option>
+                <option value="anniversary">Anniversary</option>
+                <option value="wedding">Wedding</option>
+                <option value="other">Other</option>
+              </select>
+              <input
+                type="date"
+                name="date"
+                className="rounded-xl border px-3 py-2"
+                required
+              />
+              <input
+                name="person"
+                placeholder="Who is it for? (optional)"
+                className="rounded-xl border px-3 py-2 sm:col-span-2"
+              />
+              <textarea
+                name="notes"
+                placeholder="Notes (optional)"
+                className="rounded-xl border px-3 py-2 sm:col-span-2"
+              />
+              <SubmitButton>Add</SubmitButton>
+            </form>
           </GlassCard>
 
           {/* Family */}
@@ -177,7 +218,7 @@ export default async function Dashboard() {
           {/* Calendars */}
           <GlassCard
             accent="sky"
-            className="text-left xl:col-span-1 md:col-span-2 xl:col-span-1"
+            className="text-left md:col-span-2 xl:col-span-1"
           >
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Calendars</h2>
