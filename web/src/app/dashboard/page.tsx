@@ -162,7 +162,15 @@ export default async function Dashboard() {
                 className="rounded-xl border px-3 py-2"
                 required
               />
-              <select name="type" className="rounded-xl border px-3 py-2">
+              <label htmlFor="type" className="sr-only">
+                Occasion type
+              </label>
+              <select
+                id="type"
+                name="type"
+                className="rounded-xl border px-3 py-2"
+                title="Occasion type"
+              >
                 <option value="birthday">Birthday</option>
                 <option value="anniversary">Anniversary</option>
                 <option value="wedding">Wedding</option>
@@ -173,6 +181,8 @@ export default async function Dashboard() {
                 name="date"
                 className="rounded-xl border px-3 py-2"
                 required
+                placeholder="Select date"
+                title="Select date"
               />
               <input
                 name="person"
