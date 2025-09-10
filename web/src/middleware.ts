@@ -1,11 +1,15 @@
-import auth from "next-auth/middleware";
-export const middleware = auth;
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/events/:path*",
-    "/family/:path*",
-    "/settings/:path*",
-  ],
-};
+const PROTECTED = [/^\/dashboard/, /^\/events/, /^\/family/, /^\/settings/];
+
+export async function middleware(req: NextRequest) {
+  if (!PROTECTED.some((rx) => rx.test(req.nextUrl.pathname)))
+    return NextResponse.next();
+
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  if (!token) return NextResponse.redirect(new URL("/", req.url));
+
+  return NextResponse.next();
+}
