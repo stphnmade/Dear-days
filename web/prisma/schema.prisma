@@ -1,3 +1,8 @@
+enum SpecialDaySource {
+  MANUAL
+  GOOGLE
+}
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -65,11 +70,16 @@ model Family {
   members     FamilyMember[]
   specialDays SpecialDay[]   @relation("FamilyEvents")
 
+  // NEW: incremental sync support for Google Calendar imports (optional but useful)
+  googleSyncToken  String?   // calendar.events.list nextSyncToken
+  googleCalendarId String?   // e.g. "primary" for v1
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([ownerId])
 }
+
 
 model FamilyMember {
   id           String   @id @default(cuid())
@@ -102,12 +112,21 @@ model SpecialDay {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // NEW: identify source + dedupe for Google imports
+  source     SpecialDaySource @default(MANUAL)
+  externalId String?          // Google eventId
+  calendarId String?          // 'primary' or a specific Google calendar id
+
   family Family? @relation("FamilyEvents", fields: [familyId], references: [id], onDelete: Cascade)
   user   User?   @relation("UserEvents", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([familyId])
   @@index([userId])
+
+  // NEW: avoid duplicates for imported events (allows many rows when values are NULL)
+  @@unique([familyId, externalId, calendarId])
 }
+
 
 model Invitation {
   id        String   @id @default(cuid())

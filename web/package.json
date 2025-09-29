@@ -25,6 +25,7 @@
     "axios": "^1.11.0",
     "date-fns": "^4.1.0",
     "googleapis": "^159.0.0",
+    "ical-generator": "^9.0.0",
     "lucide-react": "^0.542.0",
     "luxon": "^3.7.1",
     "next": "15.5.2",
