@@ -37,6 +37,11 @@ export default async function EventsPage() {
               </div>
               <div className="text-xs text-slate-500">
                 {new Date(ev.date).toLocaleDateString()} · {ev.type}
+                {ev.person ? ` · ${ev.person}` : ""}
+                {/* @ts-ignore if source exists on your model */}
+                {"source" in ev && (ev as any).source === "GOOGLE"
+                  ? " · from Google"
+                  : ""}
               </div>
             </div>
             <div className="flex gap-2">

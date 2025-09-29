@@ -6,7 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { specialDaySchema } from "@/lib/validation";
-import { getOrCreateDefaultFamily } from "@/lib/family"; // 👈 add this
+import { getOrCreateDefaultFamily, getOwnedFamilyId } from "@/lib/family";
 
 const assertUserId = async (): Promise<string> => {
   const s = await getServerSession(authOptions);
@@ -14,11 +14,10 @@ const assertUserId = async (): Promise<string> => {
   return (s.user as any).id as string;
 };
 
-// ✅ ADD THIS
+// Create
 export async function quickAddSpecialDay(formData: FormData) {
   const userId = await assertUserId();
 
-  // Validate shape
   const parsed = specialDaySchema.safeParse({
     title: formData.get("title"),
     type: formData.get("type") || "other",
@@ -26,17 +25,15 @@ export async function quickAddSpecialDay(formData: FormData) {
     person: formData.get("person") || null,
     notes: formData.get("notes") || null,
   });
-  if (!parsed.success) {
+  if (!parsed.success)
     throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
-  }
 
   const { title, type, date, person, notes } = parsed.data;
 
-  // Convert YYYY-MM-DD → Date (noon local to avoid DST edge cases)
+  // date at noon (DST-safe)
   const [y, m, d] = date.split("-").map(Number);
   const dt = new Date(y, m - 1, d, 12);
 
-  // Ensure the user has a family to attach to
   const family = await getOrCreateDefaultFamily(userId);
 
   await prisma.specialDay.create({
@@ -51,20 +48,37 @@ export async function quickAddSpecialDay(formData: FormData) {
     },
   });
 
-  // Refresh pages that show events
   revalidatePath("/dashboard");
   revalidatePath("/events");
 }
 
-// (your existing actions)
+// Delete (secured)
 export async function deleteEvent(id: string) {
-  await assertUserId();
+  const userId = await assertUserId();
+
+  // Only allow delete if the event belongs to the user OR their owned family
+  const ownedFamilyId = await getOwnedFamilyId(userId);
+  const evt = await prisma.specialDay.findUnique({
+    where: { id },
+    select: { id: true, userId: true, familyId: true },
+  });
+  if (!evt) throw new Error("Not found");
+
+  const canDelete =
+    evt.userId === userId ||
+    (!!ownedFamilyId && evt.familyId === ownedFamilyId);
+  if (!canDelete) throw new Error("Forbidden");
+
   await prisma.specialDay.delete({ where: { id } });
+
   revalidatePath("/dashboard");
+  revalidatePath("/events");
 }
 
+// Update (secured)
 export async function updateEvent(formData: FormData) {
   const userId = await assertUserId();
+
   const id = String(formData.get("id"));
   const parsed = specialDaySchema.safeParse({
     title: formData.get("title"),
@@ -80,10 +94,23 @@ export async function updateEvent(formData: FormData) {
   const [y, m, d] = date.split("-").map(Number);
   const dt = new Date(y, m - 1, d, 12);
 
+  const ownedFamilyId = await getOwnedFamilyId(userId);
+  const evt = await prisma.specialDay.findUnique({
+    where: { id },
+    select: { id: true, userId: true, familyId: true },
+  });
+  if (!evt) throw new Error("Not found");
+
+  const canUpdate =
+    evt.userId === userId ||
+    (!!ownedFamilyId && evt.familyId === ownedFamilyId);
+  if (!canUpdate) throw new Error("Forbidden");
+
   await prisma.specialDay.update({
     where: { id },
     data: {
-      userId,
+      // do NOT change familyId here
+      userId, // keep last editor id if you want
       title,
       type,
       date: dt,
@@ -93,4 +120,5 @@ export async function updateEvent(formData: FormData) {
   });
 
   revalidatePath("/dashboard");
+  revalidatePath("/events");
 }
