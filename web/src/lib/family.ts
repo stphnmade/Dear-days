@@ -9,10 +9,12 @@ function slugify(s: string) {
 }
 
 /** Find the family owned by this user (nullable). */
-export async function getOwnedFamily(userId: string) {
-  return prisma.family.findFirst({
-    where: { owner: { id: userId } },
-  }); // -> Family | null
+export async function getOwnedFamilyId(userId: string): Promise<string | null> {
+  const fam = await prisma.family.findFirst({
+    where: { ownerId: userId },
+    select: { id: true },
+  });
+  return fam?.id ?? null;
 }
 
 /** Ensure an owned family exists; return the full Family (never null). */

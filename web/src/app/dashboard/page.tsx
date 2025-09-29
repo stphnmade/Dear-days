@@ -233,10 +233,10 @@ export default async function Dashboard() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Calendars</h2>
               <Link
-                href="/settings/connections"
+                href="/connections"
                 className="text-sm text-sky-700 dark:text-sky-300 hover:underline"
               >
-                Settings
+                Connections
               </Link>
             </div>
             <div className="mt-4">
