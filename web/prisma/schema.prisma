@@ -63,16 +63,15 @@ model Family {
   name String
   slug String @unique
 
-  // 👇 Relation to owner (ensure this exists)
   owner   User   @relation("FamiliesOwned", fields: [ownerId], references: [id], onDelete: Cascade)
-  ownerId String // recommended (schema-side)
+  ownerId String
 
   members     FamilyMember[]
   specialDays SpecialDay[]   @relation("FamilyEvents")
 
-  // NEW: incremental sync support for Google Calendar imports (optional but useful)
-  googleSyncToken  String?   // calendar.events.list nextSyncToken
-  googleCalendarId String?   // e.g. "primary" for v1
+  // ✅ These must exist
+  googleSyncToken  String?
+  googleCalendarId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
