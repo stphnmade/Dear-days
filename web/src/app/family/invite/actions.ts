@@ -1,19 +1,49 @@
 "use server";
 
-import { randomBytes } from "crypto";
+import crypto from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getOwnedFamilyId } from "@/lib/family";
 
-export async function createInvite(email?: string) {
+async function assertUserId() {
   const s = await getServerSession(authOptions);
   if (!s?.user) throw new Error("Unauthorized");
-  const inviterId = (s.user as any).id as string;
+  return (s.user as any).id as string;
+}
 
-  const token = randomBytes(24).toString("base64url");
+export async function createInvite() {
+  const userId = await assertUserId();
+  const familyId = await getOwnedFamilyId(userId);
+  if (!familyId) throw new Error("No owned family");
+
+  const token = crypto.randomBytes(16).toString("hex");
+
   await prisma.invitation.create({
-    data: { inviterId, email: email || null, token },
+    data: {
+      inviterId: userId,
+      familyId,
+      token,
+      status: "pending",
+      // expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // optional override
+    },
   });
 
-  return `${process.env.NEXTAUTH_URL}/invite/${token}`;
+  revalidatePath("/family");
+}
+
+export async function removeMember(memberId: string) {
+  const userId = await assertUserId();
+  const familyId = await getOwnedFamilyId(userId);
+  if (!familyId) throw new Error("No owned family");
+
+  const member = await prisma.familyMember.findUnique({
+    where: { id: memberId },
+    select: { id: true, familyId: true },
+  });
+  if (!member || member.familyId !== familyId) throw new Error("Forbidden");
+
+  await prisma.familyMember.delete({ where: { id: memberId } });
+  revalidatePath("/family");
 }

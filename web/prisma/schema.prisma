@@ -69,6 +69,8 @@ model Family {
   members     FamilyMember[]
   specialDays SpecialDay[]   @relation("FamilyEvents")
 
+  invitations Invitation[] @relation("FamilyInvitations")
+
   // ✅ These must exist
   googleSyncToken  String?
   googleCalendarId String?
@@ -78,7 +80,6 @@ model Family {
 
   @@index([ownerId])
 }
-
 
 model FamilyMember {
   id           String   @id @default(cuid())
@@ -113,26 +114,27 @@ model SpecialDay {
 
   // NEW: identify source + dedupe for Google imports
   source     SpecialDaySource @default(MANUAL)
-  externalId String?          // Google eventId
-  calendarId String?          // 'primary' or a specific Google calendar id
+  externalId String? // Google eventId
+  calendarId String? // 'primary' or a specific Google calendar id
 
   family Family? @relation("FamilyEvents", fields: [familyId], references: [id], onDelete: Cascade)
   user   User?   @relation("UserEvents", fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([familyId])
-  @@index([userId])
-
   // NEW: avoid duplicates for imported events (allows many rows when values are NULL)
   @@unique([familyId, externalId, calendarId])
+  @@index([familyId])
+  @@index([userId])
 }
-
 
 model Invitation {
   id        String   @id @default(cuid())
   inviterId String
+  familyId  String // 👈 NEW
   email     String?
   token     String   @unique
   status    String   @default("pending")
   createdAt DateTime @default(now())
   expiresAt DateTime @default(dbgenerated("(DATETIME('now', '+14 days'))"))
+
+  family Family @relation("FamilyInvitations", fields: [familyId], references: [id], onDelete: Cascade)
 }
