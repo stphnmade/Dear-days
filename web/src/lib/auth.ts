@@ -32,9 +32,10 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async session({ session, token }) {
-      // expose user id on the client
-      if (token?.sub) (session.user as any).id = token.sub;
+    async session({ session, user, token }) {
+      // prefer user.id if using PrismaAdapter, otherwise token.sub for JWT sessions
+      if (user?.id) (session.user as any).id = user.id;
+      else if (token?.sub) (session.user as any).id = token.sub;
       return session;
     },
   },

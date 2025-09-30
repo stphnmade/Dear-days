@@ -1,3 +1,4 @@
+// src/app/invite/[token]/page.tsx
 import { redirect } from "next/navigation";
 import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -7,21 +8,25 @@ export default async function AcceptInvitePage({
 }: {
   params: { token: string };
 }) {
-  const s = await getAuthSession();
-  if (!s?.user) redirect("/");
-  const userId = (s.user as any).id as string;
+  // Must be signed in
+  const session = await getAuthSession();
+  if (!session?.user) redirect("/");
 
+  const sessionId = (session.user as any).id as string | undefined;
+  const sessionEmail = (session.user as any).email as string | undefined;
+
+  // 1) Load invite (must exist, be pending, not expired, and be tied to a family)
   const invite = await prisma.invitation.findUnique({
     where: { token: params.token },
-    select: {
-      id: true,
-      status: true,
-      expiresAt: true,
-      familyId: true,
-    },
+    select: { id: true, status: true, expiresAt: true, familyId: true },
   });
 
-  if (!invite || invite.status !== "pending" || invite.expiresAt < new Date()) {
+  if (
+    !invite ||
+    invite.status !== "pending" ||
+    invite.expiresAt < new Date() ||
+    !invite.familyId
+  ) {
     return (
       <main className="mx-auto max-w-2xl p-6">
         <h1 className="text-2xl font-semibold">Invite</h1>
@@ -30,13 +35,12 @@ export default async function AcceptInvitePage({
     );
   }
 
-  // ✅ Ensure the target family exists (prevents FK violation)
+  // 2) Ensure the family exists (prevents FK failures)
   const family = await prisma.family.findUnique({
     where: { id: invite.familyId },
     select: { id: true },
   });
   if (!family) {
-    // stale/bad invite; mark it as invalid to avoid re-use
     await prisma.invitation.update({
       where: { id: invite.id },
       data: { status: "invalid" },
@@ -49,42 +53,75 @@ export default async function AcceptInvitePage({
     );
   }
 
-  // Prefer composite unique if present
-  const hasCompositeUnique =
-    // @ts-ignore – crude runtime check via Prisma metadata is not available,
-    // so we just try upsert and fall back if it errors.
-    true;
+  // 3) Resolve the current user robustly:
+  //    - try by session id
+  //    - fall back to session email
+  //    - if still not found but we have email, upsert by email
+  let me =
+    (sessionId &&
+      (await prisma.user.findUnique({
+        where: { id: sessionId },
+        select: { id: true, name: true, email: true },
+      }))) ||
+    (sessionEmail &&
+      (await prisma.user.findUnique({
+        where: { email: sessionEmail },
+        select: { id: true, name: true, email: true },
+      }))) ||
+    null;
 
+  if (!me && sessionEmail) {
+    // Create the user row if provider/session gave us an email but no DB row exists
+    me = await prisma.user.upsert({
+      where: { email: sessionEmail },
+      update: {},
+      create: {
+        email: sessionEmail,
+        name: session.user.name ?? null,
+        image: session.user.image ?? null,
+      },
+      select: { id: true, name: true, email: true },
+    });
+  }
+
+  if (!me) {
+    // If we get here, the session lacks both a DB id and an email.
+    throw new Error("Your account could not be found.");
+  }
+
+  // 4) Idempotently join the family.
+  // Prefer composite unique if you have: @@unique([familyId, joinedUserId])
   try {
     await prisma.familyMember.upsert({
       where: {
-        // Works only if you defined: @@unique([familyId, joinedUserId])
-        familyId_joinedUserId: { familyId: family.id, joinedUserId: userId },
+        familyId_joinedUserId: { familyId: family.id, joinedUserId: me.id },
       } as any,
       create: {
-        familyId: family.id,
-        joinedUserId: userId,
-        name: "", // required by your schema
+        name: me.name ?? "",
+        // Use nested connect to satisfy FKs explicitly
+        family: { connect: { id: family.id } },
+        user: { connect: { id: me.id } }, // maps to joinedUserId via your relation
       },
       update: {},
     });
   } catch {
-    // Fallback if you don't actually have the composite unique:
+    // Fallback if the composite alias isn't in your generated client for any reason
     const existing = await prisma.familyMember.findFirst({
-      where: { familyId: family.id, joinedUserId: userId },
+      where: { familyId: family.id, joinedUserId: me.id },
       select: { id: true },
     });
     if (!existing) {
       await prisma.familyMember.create({
         data: {
-          familyId: family.id,
-          joinedUserId: userId,
-          name: "",
+          name: me.name ?? "",
+          family: { connect: { id: family.id } },
+          user: { connect: { id: me.id } },
         },
       });
     }
   }
 
+  // 5) Mark invite accepted
   await prisma.invitation.update({
     where: { id: invite.id },
     data: { status: "accepted" },
