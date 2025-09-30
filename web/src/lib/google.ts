@@ -1,11 +1,11 @@
 // src/lib/google.ts
-import { google } from "googleapis";
+import { google, calendar_v3 } from "googleapis";
 import { addMonths, isAfter } from "date-fns";
-import { db } from "@/lib/db"; // make sure you export a Prisma client from here
+import { db } from "@/lib/db";
 
 /**
- * Returns an OAuth2 client for the user's Google account.
- * Uses your NextAuth Account row for tokens and refreshes if needed.
+ * Build an OAuth2 client for the user's Google account.
+ * Reads/refreshes tokens from NextAuth Account table.
  */
 export async function getGoogleClientForUser(userId: string) {
   const account = await db.account.findFirst({
@@ -28,7 +28,7 @@ export async function getGoogleClientForUser(userId: string) {
     id_token: account.id_token || undefined,
   });
 
-  // silently refresh if expired
+  // Refresh if expired
   try {
     const expired =
       !account.expires_at ||
@@ -50,7 +50,6 @@ export async function getGoogleClientForUser(userId: string) {
           id_token: (credentials as any).id_token ?? account.id_token ?? null,
         },
       });
-      // set refreshed creds on client
       oauth2.setCredentials(credentials);
     }
   } catch (err) {
@@ -63,15 +62,13 @@ export async function getGoogleClientForUser(userId: string) {
 type ImportResult = { created: number; updated: number; skipped: number };
 
 /**
- * Imports "special days" from Google Calendar into the given family.
- * - Full scan for the next 18 months on first run
- * - Then incremental with syncToken
- * - Heuristic filters for birthdays/anniversaries/all-day events
+ * Import "special day" events into a family.
+ * First run: full scan (timeMin/timeMax). Subsequent runs: incremental via syncToken.
  */
 export async function importGoogleSpecialDays(params: {
   userId: string;
   familyId: string;
-  calendarId?: string;
+  calendarId?: string; // default "primary"
 }): Promise<ImportResult> {
   const { userId, familyId } = params;
   const calendarId = params.calendarId ?? "primary";
@@ -79,48 +76,185 @@ export async function importGoogleSpecialDays(params: {
   const oauth2 = await getGoogleClientForUser(userId);
   if (!oauth2) throw new Error("Google account not connected");
 
-  const calendar = google.calendar({ version: "v3", auth: oauth2 });
+  const calendarClient = google.calendar({ version: "v3", auth: oauth2 });
+
+  // Only select the fields we need to keep TS narrow
   const family = await db.family.findUnique({
     where: { id: familyId },
-    select: { id: true, googleSyncToken: true }, // safer select
+    select: { id: true, googleSyncToken: true },
   });
 
-  const listArgs: any = {
+  // FULL SCAN args (allowed filters)
+  const fullArgs: calendar_v3.Params$Resource$Events$List = {
     calendarId,
+    maxResults: 2500,
     singleEvents: true,
     showDeleted: false,
-    maxResults: 2500,
+    timeMin: new Date().toISOString(),
+    timeMax: addMonths(new Date(), 18).toISOString(),
   };
 
-  if (!family?.googleSyncToken) {
-    listArgs.timeMin = new Date().toISOString();
-    listArgs.timeMax = addMonths(new Date(), 18).toISOString();
-  } else {
-    listArgs.syncToken = family.googleSyncToken;
-  }
+  // INCREMENTAL args (ONLY syncToken + basic params)
+  const incrementalArgs: calendar_v3.Params$Resource$Events$List | null =
+    family?.googleSyncToken
+      ? {
+          calendarId,
+          maxResults: 2500,
+          syncToken: family.googleSyncToken,
+        }
+      : null;
 
-  let pageToken: string | undefined;
-  let nextSyncToken: string | undefined;
+  // Runs one pass over the API using given args, handling pagination.
+  const runList = async (
+    args: calendar_v3.Params$Resource$Events$List
+  ): Promise<{
+    created: number;
+    updated: number;
+    skipped: number;
+    nextSyncToken?: string;
+  }> => {
+    let pageToken: string | undefined;
+    let created = 0,
+      updated = 0,
+      skipped = 0;
+    let nextSyncToken: string | undefined;
+
+    do {
+      const res = await calendarClient.events.list({ ...args, pageToken });
+      pageToken = res.data.nextPageToken ?? undefined;
+      if (res.data.nextSyncToken) nextSyncToken = res.data.nextSyncToken;
+
+      const items = res.data.items ?? [];
+      for (const ev of items) {
+        const title = (ev.summary ?? "").trim();
+        const isAllDay = !!ev.start?.date;
+        const looksSpecial =
+          /birthday|bday|anniversary|wedding|born/i.test(title) ||
+          ev.eventType === "birthday";
+
+        // Keep: all-day or obvious special-day keywords
+        if (!isAllDay && !looksSpecial) {
+          skipped++;
+          continue;
+        }
+        if (!ev.id || !ev.start) {
+          skipped++;
+          continue;
+        }
+
+        const dateStr = ev.start.date ?? ev.start.dateTime;
+        if (!dateStr) {
+          skipped++;
+          continue;
+        }
+
+        const when = new Date(dateStr);
+        const kind = /anniversary|wedding/i.test(title)
+          ? "anniversary"
+          : /birthday|bday|born/i.test(title)
+          ? "birthday"
+          : "other";
+
+        const person =
+          title
+            .replace(/’s|s’|'s/gi, "")
+            .replace(/birthday|anniversary|wedding|bday/gi, "")
+            .trim() || null;
+
+        // Upsert by (familyId, externalId, calendarId)
+        const existing = await db.specialDay
+          .findUnique({
+            where: {
+              familyId_externalId_calendarId: {
+                familyId,
+                externalId: ev.id!,
+                calendarId,
+              },
+            },
+          })
+          .catch(() => null);
+
+        if (!existing) {
+          await db.specialDay.create({
+            data: {
+              familyId,
+              title: title || kind,
+              type: kind,
+              date: when,
+              person: person ?? undefined,
+              notes: ev.description ?? undefined,
+              source: "GOOGLE",
+              externalId: ev.id!,
+              calendarId,
+            },
+          });
+          created++;
+        } else {
+          await db.specialDay.update({
+            where: { id: existing.id },
+            data: {
+              title: title || existing.title,
+              type: kind,
+              date: when,
+              person: person ?? existing.person ?? undefined,
+              notes: ev.description ?? existing.notes ?? undefined,
+            },
+          });
+          updated++;
+        }
+      }
+    } while (pageToken);
+
+    return { created, updated, skipped, nextSyncToken };
+  };
+
+  // Try incremental first if we have a sync token; otherwise do full scan.
   let created = 0,
     updated = 0,
     skipped = 0;
 
-  // loop through pages of events
-  do {
-    const res = await calendar.events.list({ ...listArgs, pageToken });
-    pageToken = res.data.nextPageToken ?? undefined;
-    if (res.data.nextSyncToken) nextSyncToken = res.data.nextSyncToken;
+  try {
+    const first = await runList(incrementalArgs ?? fullArgs);
+    created += first.created;
+    updated += first.updated;
+    skipped += first.skipped;
 
-    const items = res.data.items ?? [];
-    // … handle items …
-  } while (pageToken);
+    if (first.nextSyncToken) {
+      await db.family.update({
+        where: { id: familyId },
+        data: {
+          googleSyncToken: first.nextSyncToken,
+          googleCalendarId: calendarId,
+        },
+      });
+    }
+  } catch (err: any) {
+    // 410 Gone -> sync token is invalid/expired; clear and run a full scan once.
+    const code =
+      err?.code || err?.response?.status || err?.response?.data?.error?.code;
+    if (code === 410 && incrementalArgs?.syncToken) {
+      await db.family.update({
+        where: { id: familyId },
+        data: { googleSyncToken: null },
+      });
+      const second = await runList(fullArgs);
+      created += second.created;
+      updated += second.updated;
+      skipped += second.skipped;
 
-  // ✅ place this block right here, after loop finishes
-  if (nextSyncToken) {
-    await db.family.update({
-      where: { id: familyId },
-      data: { googleSyncToken: nextSyncToken, googleCalendarId: calendarId },
-    });
+      if (second.nextSyncToken) {
+        await db.family.update({
+          where: { id: familyId },
+          data: {
+            googleSyncToken: second.nextSyncToken,
+            googleCalendarId: calendarId,
+          },
+        });
+      }
+    } else {
+      console.error("Google Calendar import failed:", err?.message || err);
+      throw err;
+    }
   }
 
   return { created, updated, skipped };
