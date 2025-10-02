@@ -77,6 +77,8 @@ model Family {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  description String?  // NEW: optional description for the family
+  timezone    String   @default("EST") // NEW: default timezone for the family members
 
   @@index([ownerId])
 }
