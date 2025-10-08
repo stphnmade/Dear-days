@@ -1,6 +1,6 @@
-// src/app/(dashboard)/family/[familyId]/manage/page.tsx  (NO "use client")
+// src/app/(dashboard)/family/[familyId]/manage/page.tsx
 import { prisma } from "@/lib/db";
-import ServerForm from "./ServerForm";
+import ManageFamilyClient from "./ManageFamilyClient";
 
 export default async function ManageFamilyPage({
   params: { familyId },
@@ -10,8 +10,15 @@ export default async function ManageFamilyPage({
   const family = await prisma.family.findUnique({ where: { id: familyId } });
   if (!family) throw new Error("Family not found");
 
-  // Debug: confirm this is server
-  console.log("ManageFamilyPage is server:", typeof window === "undefined");
-
-  return <ServerForm family={family} />;
+  return (
+    <ManageFamilyClient
+      familyId={familyId}
+      initial={{
+        name: family.name ?? "",
+        // These may be null/undefined if you haven't migrated yet; it's fine.
+        timezone: (family as any).timezone ?? "America/New_York",
+        description: (family as any).description ?? "",
+      }}
+    />
+  );
 }
