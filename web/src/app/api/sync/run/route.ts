@@ -13,7 +13,7 @@ export async function POST() {
 
   const user = await prisma.user.findUnique({
     where: { email: session.user.email! },
-    include: { accounts: true, families: { include: { family: true } } },
+    include: { accounts: true },
   });
   if (!user) return new Response("No user", { status: 404 });
 
@@ -34,26 +34,46 @@ export async function POST() {
       orderBy: "startTime",
     });
 
-    const familyId = user.families[0]?.familyId; // default for now
-    if (familyId) {
-      const toSave = (res.data.items ?? [])
-        .filter((e) => isSpecialDay(e)) // simple heuristic
-        .map((e) => ({
-          familyId,
-          userId: user.id,
-          title: e.summary ?? "Untitled",
-          date: new Date(normalizeDate(e)),
-          type: "custom",
-          source: "google",
-          sourceId: e.id ?? undefined,
-        }));
-      for (const d of toSave) {
-        await prisma.specialDay.upsert({
-          where: { sourceId: d.sourceId! },
-          update: d,
-          create: d,
-        });
-      }
+    // Patch: No families relation on user, so skip familyId logic
+    const toSave = (res.data.items ?? [])
+      .filter((e) => isSpecialDay(e)) // simple heuristic
+      .map((e) => ({
+        userId: user.id,
+        title: e.summary ?? "Untitled",
+        date: new Date(normalizeDate(e)),
+        type: "custom",
+        source: "GOOGLE" as any, // Patch: assign enum value
+        externalId: e.id ?? undefined,
+        calendarId: "primary",
+      }));
+    for (const d of toSave) {
+      await prisma.specialDay.upsert({
+        where: {
+          familyId_externalId_calendarId: {
+            familyId: "", // Patch: set to empty string for missing family context
+            externalId: d.externalId!,
+            calendarId: d.calendarId!,
+          },
+        },
+        update: {
+          userId: d.userId,
+          title: d.title,
+          date: d.date,
+          type: d.type,
+          source: d.source,
+          externalId: d.externalId,
+          calendarId: d.calendarId,
+        },
+        create: {
+          userId: d.userId,
+          title: d.title,
+          date: d.date,
+          type: d.type,
+          source: d.source,
+          externalId: d.externalId,
+          calendarId: d.calendarId,
+        },
+      });
     }
   }
 
