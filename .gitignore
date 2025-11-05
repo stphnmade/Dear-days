@@ -1,0 +1,18 @@
+# Ignore node/npm/pnpm artifacts for the repo
+# Ignore pnpm store inside the web folder if created locally
+/web/.pnpm-store/
+
+# Node modules and build output
+/web/node_modules/
+/web/.next/
+
+# Prisma local DB and environment files
+/web/prisma/dev.db
+/web/.env*
+
+# devcontainer and editor files
+/.devcontainer/**
+/.vscode/**
+
+# macOS
+.DS_Store

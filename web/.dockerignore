@@ -1,0 +1,12 @@
+.next
+node_modules
+dist
+build
+coverage
+npm-debug.log
+pnpm-debug.log
+.env.local
+.env.development
+.env.production
+*.sqlite3
+dev.db

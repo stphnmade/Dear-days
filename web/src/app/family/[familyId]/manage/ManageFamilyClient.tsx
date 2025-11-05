@@ -23,59 +23,22 @@ function SubmitButton() {
 export default function ManageFamilyClient({
   familyId,
   initial,
+  action,
 }: {
   familyId: string;
   initial: Initial;
+  // action is a server action bound on the server page
+  // action receives (prevState, payload) to match useActionState signature
+  action: (
+    prev: any,
+    formData: FormData
+  ) => Promise<{ ok: boolean; message: string }>;
 }) {
-  // Inline server action: works even if everything around is client.
-  const [state, formAction] = useActionState(
-    async (_prev: any, formData: FormData) => {
-      "use server";
-
-      // 🧠 Import server-only modules INSIDE the action (so they stay on the server)
-      const [
-        { getServerSession },
-        { authOptions },
-        { prisma },
-        { revalidatePath },
-      ] = await Promise.all([
-        import("next-auth"),
-        import("@/lib/auth"),
-        import("@/lib/db"),
-        import("next/cache"),
-      ]);
-
-      const session = await getServerSession(authOptions);
-      if (!session?.user) throw new Error("Unauthorized");
-
-      const name = String(formData.get("name") || "").trim();
-      const timezone = String(formData.get("timezone") || "").trim();
-      const description = String(formData.get("description") || "").trim();
-
-      if (!name) throw new Error("Name is required");
-
-      // ✅ Compile-safe NOW (before your migration): update only fields that exist today.
-      // If timezone/description aren’t in your schema yet, keep them commented.
-      const data: any = { name };
-
-      // After you add fields via Prisma migration, uncomment these:
-      if (timezone) data.timezone = timezone;
-      if (description) data.description = description;
-
-      await prisma.family.update({
-        where: { id: familyId },
-        data,
-      });
-
-      await Promise.all([
-        revalidatePath("/dashboard"),
-        revalidatePath(`/family/${familyId}`),
-      ]);
-
-      return { ok: true, message: "Saved" };
-    },
-    { ok: false as boolean, message: "" }
-  );
+  // Use the server action passed from the server page
+  const [state, formAction] = useActionState(action, {
+    ok: false as boolean,
+    message: "",
+  });
 
   return (
     <form action={formAction} className="space-y-4">

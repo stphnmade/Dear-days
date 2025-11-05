@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    # mount source for live development
+    volumes:
+      - ./web:/app:cached
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      # To use Postgres from this compose file, uncomment and adjust the line below
+      # - DATABASE_URL=postgresql://dd_user:dd_pass@postgres:5432/dear_days?schema=public
+    # ensure Next listens on all interfaces
+    command: pnpm dev -- -H 0.0.0.0
+    tty: true
+  # Optional Postgres service for local development
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dd_user
+      POSTGRES_PASSWORD: dd_pass
+      POSTGRES_DB: dear_days
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dd_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:
+    name: dear_days_db_data
