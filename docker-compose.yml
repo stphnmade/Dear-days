@@ -17,7 +17,7 @@ services:
       # To use Postgres from this compose file, uncomment and adjust the line below
       # - DATABASE_URL=postgresql://dd_user:dd_pass@postgres:5432/dear_days?schema=public
     # ensure Next listens on all interfaces
-    command: pnpm dev -- -H 0.0.0.0
+    command: pnpm dev
     tty: true
   # Optional Postgres service for local development
   postgres:
