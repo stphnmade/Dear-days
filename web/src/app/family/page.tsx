@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { getOwnedFamilyId } from "@/lib/family";
 import { createInvite, removeMember } from "./invite/actions";
 import SubmitButton from "@/ui/SubmitButton";
+import GlassCard from "@/ui/GlassCard";
+import ImportGoogleButton from "@/ui/ImportGoogleButton";
 
 export default async function FamilyPage() {
   const s = await getAuthSession();
@@ -45,62 +47,186 @@ export default async function FamilyPage() {
     take: 5,
   });
 
+  const eventsCount = await prisma.specialDay.count({
+    where: { familyId: family.id },
+  });
+
+  const familyIdConst = family.id;
+
+  async function updateFamilyName(formData: FormData) {
+    "use server";
+    const name = formData.get("name")?.toString();
+    if (!name) return;
+    await prisma.family.update({
+      where: { id: familyIdConst },
+      data: { name },
+    });
+  }
+
   return (
-    <main className="mx-auto max-w-3xl p-6 space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Family: {family.name}</h1>
-        <Link href="/connections" className="underline text-sm">
-          Connections
-        </Link>
+    <main className="mx-auto max-w-6xl p-6">
+      <div className="grid grid-cols-12 gap-6">
+        {/* Big snapshot card */}
+        <div className="col-span-12 md:col-span-8">
+          <GlassCard accent="violet" className="text-left">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="text-sm text-slate-500">Family Dashboard</div>
+                <div className="text-2xl font-semibold">{family.name}</div>
+                <div className="mt-2 text-sm text-slate-600">
+                  Members: {members.length} • Events: {eventsCount}
+                </div>
+              </div>
+              <div className="text-right">
+                <Link
+                  href="/connections"
+                  className="text-sm text-slate-500 underline"
+                >
+                  Connections
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="rounded-lg bg-white/20 p-4">
+                <div className="text-sm text-slate-500">Upcoming events</div>
+                <div className="text-xl font-semibold mt-1">{eventsCount}</div>
+              </div>
+              <div className="rounded-lg bg-white/20 p-4">
+                <div className="text-sm text-slate-500">Members</div>
+                <div className="text-xl font-semibold mt-1">
+                  {members.length}
+                </div>
+              </div>
+              <div className="rounded-lg bg-white/20 p-4">
+                <div className="text-sm text-slate-500">Pending invites</div>
+                <div className="text-xl font-semibold mt-1">
+                  {invites.length}
+                </div>
+              </div>
+            </div>
+          </GlassCard>
+        </div>
+
+        {/* Sidebar */}
+        <div className="col-span-12 md:col-span-4 space-y-4 max-h-[520px] overflow-y-auto">
+          <GlassCard accent="amber" className="text-left" size="compact">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-slate-500">Invites</div>
+                <div className="text-lg font-semibold">Pending</div>
+              </div>
+              <div className="text-sm opacity-60">{invites.length}</div>
+            </div>
+
+            <div className="mt-4 space-y-2 max-h-36 overflow-y-auto">
+              {invites.length ? (
+                invites.map((inv) => (
+                  <div
+                    key={inv.id}
+                    className="flex items-center justify-between gap-3"
+                  >
+                    <div className="text-sm truncate max-w-[14rem]">
+                      /invite/{inv.token}
+                    </div>
+                    <div className="text-xs opacity-60">
+                      {new Date(inv.expiresAt).toISOString().slice(0, 10)}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-slate-600">No pending invites</div>
+              )}
+            </div>
+          </GlassCard>
+
+          <GlassCard accent="rose" className="text-left" size="compact">
+            <div>
+              <div className="text-sm text-slate-500">Members</div>
+              <div className="text-lg font-semibold">{members.length}</div>
+            </div>
+            <div className="mt-4 space-y-2">
+              {members.slice(0, 6).map((m) => (
+                <div key={m.id} className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-rose-300 to-violet-300 flex items-center justify-center text-white text-sm">
+                    {((m.user?.name ?? m.name ?? "?").split(" ")[0] || "?")[0]}
+                  </div>
+                  <div className="text-sm truncate">
+                    {m.user?.name ?? m.name ?? "(pending)"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+
+          <GlassCard accent="sky" className="text-left" size="compact">
+            <div>
+              <div className="text-sm text-slate-500">Invite</div>
+              <div className="text-lg font-semibold">Invite family</div>
+            </div>
+            <div className="mt-4">
+              <Link
+                href="/family/invite"
+                className="inline-flex items-center gap-2 rounded-xl px-4 py-2 bg-rose-400 text-white"
+              >
+                Invite family
+              </Link>
+            </div>
+          </GlassCard>
+
+          <GlassCard accent="slate" className="text-left" size="compact">
+            <div>
+              <div className="text-sm text-slate-500">Customize</div>
+              <div className="text-lg font-semibold">Family profile</div>
+            </div>
+            <form action={updateFamilyName} className="mt-4 space-y-2">
+              <input
+                name="name"
+                defaultValue={family.name}
+                className="w-full rounded-xl border px-3 py-2"
+              />
+              <div className="flex gap-2">
+                <SubmitButton>Save</SubmitButton>
+                <Link href="#" className="rounded-xl border px-4 py-2">
+                  Upload photo
+                </Link>
+              </div>
+            </form>
+          </GlassCard>
+        </div>
       </div>
 
-      {/* Members */}
-      <section>
-        <h2 className="text-lg font-semibold">Members</h2>
-        <ul className="mt-3 space-y-2">
+      {/* Full-width members grid below */}
+      <section className="mt-6">
+        <h2 className="text-lg font-semibold mb-4">Members</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {members.map((m) => (
-            <li
+            <div
               key={m.id}
-              className="flex items-center justify-between rounded-xl border px-4 py-3"
+              className="rounded-2xl border p-4 flex items-start gap-3"
             >
-              <div>
+              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-rose-300 to-violet-300 flex items-center justify-center text-white font-semibold">
+                {((m.user?.name ?? m.name ?? "?").split(" ")[0] || "?")[0]}
+              </div>
+              <div className="flex-1">
                 <div className="font-medium">
-                  {m.user?.name ?? m.name ?? "(pending)"}{" "}
-                  <span className="text-xs opacity-60">
-                    {m.user?.email ?? m.email ?? ""}
-                  </span>
+                  {m.user?.name ?? m.name ?? "(pending)"}
+                </div>
+                <div className="text-xs text-slate-600">
+                  {m.user?.email ?? m.email ?? ""}
                 </div>
                 {m.relation && (
-                  <div className="text-xs opacity-70">{m.relation}</div>
+                  <div className="text-xs opacity-70 mt-1">{m.relation}</div>
                 )}
               </div>
-              <form action={async () => removeMember(m.id)}>
-                <SubmitButton theme="danger">Remove</SubmitButton>
-              </form>
-            </li>
+              <div>
+                <form action={async () => removeMember(m.id)}>
+                  <SubmitButton theme="danger">Remove</SubmitButton>
+                </form>
+              </div>
+            </div>
           ))}
-        </ul>
-      </section>
-
-      {/* Invites */}
-      <section>
-        <h2 className="text-lg font-semibold">Invites</h2>
-        <form action={createInvite}>
-          <SubmitButton>Create invite link</SubmitButton>
-        </form>
-        <ul className="mt-3 space-y-2 text-sm">
-          {invites.map((inv) => (
-            <li
-              key={inv.id}
-              className="flex items-center justify-between rounded-xl border px-4 py-2"
-            >
-              <span>/invite/{inv.token}</span>
-              <span className="opacity-60">
-                expires {new Date(inv.expiresAt).toISOString().slice(0, 10)}
-              </span>
-            </li>
-          ))}
-        </ul>
+        </div>
       </section>
     </main>
   );

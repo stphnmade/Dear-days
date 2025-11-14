@@ -18,12 +18,20 @@ export default async function EventsPage() {
     <main className="mx-auto max-w-3xl p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Events</h1>
-        <Link
-          href="/events/new"
-          className="rounded-xl px-3 py-2 bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-        >
-          Add
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/dashboard"
+            className="rounded-xl px-3 py-2 bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+          >
+            Back to Dashboard
+          </Link>
+          <Link
+            href="/events/new"
+            className="rounded-xl px-3 py-2 bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+          >
+            Add
+          </Link>
+        </div>
       </div>
       <ul className="mt-6 space-y-2">
         {items.map((ev) => (

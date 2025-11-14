@@ -2,6 +2,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import ImportGoogleButton from "@/ui/ImportGoogleButton";
 import { importGoogleSpecialDays } from "@/lib/google";
 import { revalidatePath } from "next/cache";
 
@@ -39,11 +40,9 @@ export default async function ConnectionsPage() {
         </div>
 
         {google ? (
-          <form action={importNow} className="mt-3">
-            <button className="rounded-xl border px-4 py-2 hover:opacity-90">
-              Import from Google Calendar
-            </button>
-          </form>
+          <div className="mt-3">
+            <ImportGoogleButton />
+          </div>
         ) : (
           <a
             href="/api/auth/signin"

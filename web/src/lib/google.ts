@@ -69,9 +69,11 @@ export async function importGoogleSpecialDays(params: {
   userId: string;
   familyId: string;
   calendarId?: string; // default "primary"
+  migrateAll?: boolean; // if true, import non-all-day & non-keyword events as well
 }): Promise<ImportResult> {
   const { userId, familyId } = params;
   const calendarId = params.calendarId ?? "primary";
+  const migrateAll = params.migrateAll ?? false;
 
   const oauth2 = await getGoogleClientForUser(userId);
   if (!oauth2) throw new Error("Google account not connected");
@@ -132,10 +134,16 @@ export async function importGoogleSpecialDays(params: {
           /birthday|bday|anniversary|wedding|born/i.test(title) ||
           ev.eventType === "birthday";
 
-        // Keep: all-day or obvious special-day keywords
-        if (!isAllDay && !looksSpecial) {
-          skipped++;
-          continue;
+        // If migrateAll is false, keep original behavior: only all-day or obvious keywords
+        if (!migrateAll) {
+          if (!isAllDay && !looksSpecial) {
+            skipped++;
+            continue;
+          }
+        } else {
+          // When migrating all events, ignore the keyword filter; but still skip events without a start or id
+          // (we'll accept timed events too)
+          // no-op here
         }
         if (!ev.id || !ev.start) {
           skipped++;

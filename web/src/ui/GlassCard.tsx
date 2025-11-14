@@ -9,6 +9,7 @@ type Props = {
   accent?: Accent; // subtle colored ring+glow
   noAccent?: boolean;
 };
+type Size = "default" | "compact";
 
 const ACCENT: Record<Accent, string> = {
   rose: "ring-1 ring-rose-300/50 dark:ring-rose-400/25 shadow-[0_12px_48px_-16px_rgba(244,114,182,0.22)]",
@@ -28,7 +29,8 @@ export default function GlassCard({
   className = "",
   accent = "rose",
   noAccent = false,
-}: Props) {
+  size = "default",
+}: Props & { size?: Size }) {
   const [hasBackdrop, setHasBackdrop] = useState(false);
 
   useEffect(() => {
@@ -45,7 +47,8 @@ export default function GlassCard({
 
   const frame =
     "rounded-3xl border border-white/40 dark:border-white/10 overflow-hidden";
-  const pad = "px-8 py-16 text-center";
+  const pad =
+    size === "compact" ? "px-4 py-4 text-left" : "px-8 py-16 text-center";
   const accentClasses = noAccent ? "" : ACCENT[accent];
 
   return (

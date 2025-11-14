@@ -29,7 +29,15 @@ export default async function AcceptInvitePage({
   ) {
     return (
       <main className="mx-auto max-w-2xl p-6">
-        <h1 className="text-2xl font-semibold">Invite</h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-semibold">Invite</h1>
+          <a
+            href="/dashboard"
+            className="rounded-xl px-3 py-2 bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+          >
+            Back to Dashboard
+          </a>
+        </div>
         <p className="mt-2">This invite is invalid or expired.</p>
       </main>
     );

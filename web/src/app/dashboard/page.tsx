@@ -7,9 +7,11 @@ import { getAuthSession } from "@/lib/auth";
 import { getUpcomingEvents, getCounts } from "@/lib/queries";
 
 import GlassCard from "@/ui/GlassCard";
-import DarkModeToggle from "@/ui/DarkModeToggle";
+import ProfileMenu from "@/ui/ProfileMenu";
 import OccasionIconsBg from "@/ui/OccasionIconsBg";
 import SubmitButton from "@/ui/SubmitButton";
+
+import FamilyCalendar from "@/ui/FamilyCalendar"; // NEW: client calendar component
 
 import { quickAddSpecialDay } from "./actions"; // server action we added earlier
 
@@ -48,7 +50,6 @@ export default async function Dashboard() {
       ]);
     }
   } catch (e) {
-    // non-fatal: show empty states gracefully
     console.error("dashboard data error", e);
   }
 
@@ -78,29 +79,37 @@ export default async function Dashboard() {
             <div className="text-lg font-semibold">{name}</div>
           </div>
         </div>
-        <DarkModeToggle />
+        <ProfileMenu avatar={avatar} name={name} />
       </div>
 
-      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-20">
+      <section className="relative z-0 mx-auto max-w-6xl px-6 pb-20">
         {/* next celebrations chips */}
         <div className="mt-8 flex flex-wrap gap-2">
           {upcoming.length > 0 ? (
-            upcoming.slice(0, 3).map((ev) => (
-              <span
-                key={ev.id}
-                className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm
-                           bg-white/70 dark:bg-slate-900/60 border border-white/60 dark:border-white/10
-                           backdrop-blur-md shadow-sm"
-              >
-                <span aria-hidden>🎉</span>
-                <span className="font-medium">
-                  {ev.title ?? ev.person ?? "Special Day"}
+            upcoming.slice(0, 3).map((ev) => {
+              const vis = (ev as any).visibility ?? "private";
+              const visIcon =
+                vis === "family" ? "👪" : vis === "public" ? "🌐" : "🔒";
+              return (
+                <span
+                  key={ev.id}
+                  className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm
+                             bg-white/70 dark:bg-slate-900/60 border border-white/60 dark:border-white/10
+                             backdrop-blur-md shadow-sm"
+                >
+                  <span aria-hidden>🎉</span>
+                  <span className="font-medium">
+                    {ev.title ?? ev.person ?? "Special Day"}
+                  </span>
+                  <span className="text-slate-500 dark:text-slate-400">
+                    {fmtDate(ev.date)}
+                  </span>
+                  <span className="text-slate-500 dark:text-slate-400">
+                    {visIcon}
+                  </span>
                 </span>
-                <span className="text-slate-500 dark:text-slate-400">
-                  {fmtDate(ev.date)}
-                </span>
-              </span>
-            ))
+              );
+            })
           ) : (
             <span className="text-sm text-slate-600 dark:text-slate-300">
               No celebrations yet — let’s add your first one below.
@@ -109,7 +118,7 @@ export default async function Dashboard() {
         </div>
 
         {/* grid */}
-        <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-8 grid gap-6 grid-cols-1 md:grid-cols-3 xl:grid-cols-3">
           {/* Upcoming */}
           <GlassCard accent="violet" className="text-left">
             <div className="flex items-center justify-between">
@@ -124,24 +133,29 @@ export default async function Dashboard() {
 
             <div className="mt-4 space-y-3">
               {upcoming.length ? (
-                upcoming.map((ev) => (
-                  <div
-                    key={ev.id}
-                    className="flex items-center justify-between rounded-xl bg-white/60 dark:bg-slate-900/40 border border-white/50 dark:border-white/10 px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="truncate font-medium">
-                        {ev.title ?? ev.person ?? "Special Day"}
+                upcoming.map((ev) => {
+                  const vis = (ev as any).visibility ?? "private";
+                  const visIcon =
+                    vis === "family" ? "👪" : vis === "public" ? "🌐" : "🔒";
+                  return (
+                    <div
+                      key={ev.id}
+                      className="flex items-center justify-between rounded-xl bg-white/60 dark:bg-slate-900/40 border border-white/50 dark:border-white/10 px-4 py-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">
+                          {ev.title ?? ev.person ?? "Special Day"}
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">
+                          {fmtDate(ev.date)}
+                        </div>
                       </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {ev.type ?? "Occasion"} · {fmtDate(ev.date)}
+                      <div className="ml-3 text-sm text-slate-600 dark:text-slate-300">
+                        {visIcon}
                       </div>
                     </div>
-                    <button className="text-sm rounded-lg px-3 py-1.5 bg-violet-500/90 text-white hover:bg-violet-500">
-                      Send card
-                    </button>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <EmptyList
                   title="No upcoming events"
@@ -150,52 +164,6 @@ export default async function Dashboard() {
                 />
               )}
             </div>
-
-            {/* Quick add (server action) */}
-            <form
-              action={quickAddSpecialDay}
-              className="mt-5 grid gap-2 sm:grid-cols-2"
-            >
-              <input
-                name="title"
-                placeholder="e.g., Mom’s Birthday"
-                className="rounded-xl border px-3 py-2"
-                required
-              />
-              <label htmlFor="type" className="sr-only">
-                Occasion type
-              </label>
-              <select
-                id="type"
-                name="type"
-                className="rounded-xl border px-3 py-2"
-                title="Occasion type"
-              >
-                <option value="birthday">Birthday</option>
-                <option value="anniversary">Anniversary</option>
-                <option value="wedding">Wedding</option>
-                <option value="other">Other</option>
-              </select>
-              <input
-                type="date"
-                name="date"
-                className="rounded-xl border px-3 py-2"
-                required
-                placeholder="Select date"
-                title="Select date"
-              />
-              <input
-                name="person"
-                placeholder="Who is it for? (optional)"
-                className="rounded-xl border px-3 py-2 sm:col-span-2"
-              />
-              <textarea
-                name="notes"
-                placeholder="Notes (optional)"
-                className="rounded-xl border px-3 py-2 sm:col-span-2"
-              />
-              <SubmitButton>Add</SubmitButton>
-            </form>
           </GlassCard>
 
           {/* Family */}
@@ -225,35 +193,21 @@ export default async function Dashboard() {
             </div>
           </GlassCard>
 
-          {/* Calendars */}
-          <GlassCard
-            accent="sky"
-            className="text-left md:col-span-2 xl:col-span-1"
-          >
+          {/* Calendar (replaces old Notifications card) */}
+          <GlassCard accent="amber" className="text-left">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Calendars</h2>
+              <h2 className="text-xl font-semibold">Shared Family Calendar</h2>
               <Link
-                href="/connections"
-                className="text-sm text-sky-700 dark:text-sky-300 hover:underline"
+                href="/family/calendar"
+                className="text-sm text-amber-700 dark:text-amber-300 hover:underline"
               >
-                Connections
+                Open calendar
               </Link>
             </div>
+
             <div className="mt-4">
-              {counts.accounts > 0 ? (
-                <div className="text-sm text-slate-700 dark:text-slate-300">
-                  Google Calendar connected.
-                </div>
-              ) : (
-                <EmptyList
-                  title="No calendar linked"
-                  hint="Connect Google to auto-import birthdays & anniversaries."
-                  action={{
-                    label: "Connect Google",
-                    href: "/calendar/google/connect",
-                  }}
-                />
-              )}
+              {/* FamilyCalendar is a client component that provides month/list views */}
+              <FamilyCalendar events={upcoming} />
             </div>
           </GlassCard>
         </div>
