@@ -30,7 +30,8 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dd_user"]
+      # Ensure pg_isready checks the actual database created by POSTGRES_DB
+      test: ["CMD-SHELL", "pg_isready -U dd_user -d dear_days"]
       interval: 10s
       timeout: 5s
       retries: 5
