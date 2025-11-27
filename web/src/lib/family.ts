@@ -28,6 +28,15 @@ export async function getOrCreateDefaultFamily(
   });
   if (existing) return existing; // -> Family
 
+  // Ensure the User record exists before creating a Family that references it
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    // User doesn't exist in the database; create a minimal User record
+    await prisma.user.create({
+      data: { id: userId },
+    });
+  }
+
   const slug = `${slugify(name)}-${userId.slice(0, 6)}`;
   return prisma.family.create({
     data: {

@@ -92,6 +92,23 @@ export default async function AcceptInvitePage({
     });
   }
 
+  // Fallback: create a minimal user with just session id if we still have nothing
+  if (!me && sessionId) {
+    me = await prisma.user
+      .create({
+        data: { id: sessionId },
+        select: { id: true, name: true, email: true },
+      })
+      .catch(() => null); // ignore if user already exists
+
+    if (!me) {
+      me = await prisma.user.findUnique({
+        where: { id: sessionId },
+        select: { id: true, name: true, email: true },
+      });
+    }
+  }
+
   if (!me) {
     // If we get here, the session lacks both a DB id and an email.
     throw new Error("Your account could not be found.");

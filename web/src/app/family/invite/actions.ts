@@ -15,8 +15,31 @@ async function assertUserId() {
 
 export async function createInvite() {
   const userId = await assertUserId();
-  const familyId = await getOwnedFamilyId(userId);
-  if (!familyId) throw new Error("No owned family");
+  // Ensure a family exists for this user (create if missing)
+  const familyId = await (
+    await import("@/lib/family")
+  ).ensureOwnedFamilyId(userId);
+
+  // Get the user to access their name
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true },
+  });
+
+  // Ensure the creator is a member of the family
+  if (user) {
+    await prisma.familyMember.upsert({
+      where: {
+        familyId_joinedUserId: { familyId, joinedUserId: userId },
+      } as any,
+      create: {
+        name: user.name ?? "Family Creator",
+        family: { connect: { id: familyId } },
+        user: { connect: { id: userId } },
+      },
+      update: {},
+    });
+  }
 
   const token = crypto.randomBytes(16).toString("hex");
 
