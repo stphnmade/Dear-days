@@ -38,7 +38,17 @@ export default async function AcceptInvitePage({
             Back to Dashboard
           </a>
         </div>
-        <p className="mt-2">This invite is invalid or expired.</p>
+        <p className="mt-2 text-red-600">
+          {!invite
+            ? "Invite not found."
+            : invite.status !== "pending"
+            ? `Invite already ${invite.status}.`
+            : invite.expiresAt < new Date()
+            ? "Invite has expired."
+            : !invite.familyId
+            ? "Invite has no family."
+            : "This invite is invalid or expired."}
+        </p>
       </main>
     );
   }
@@ -152,5 +162,22 @@ export default async function AcceptInvitePage({
     data: { status: "accepted" },
   });
 
-  redirect("/family");
+  // Show success message before redirecting
+  return (
+    <main className="mx-auto max-w-2xl p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-semibold">Invite</h1>
+        <a
+          href="/dashboard"
+          className="rounded-xl px-3 py-2 bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+        >
+          Back to Dashboard
+        </a>
+      </div>
+      <p className="mt-2 text-green-600">
+        ✅ Successfully joined the family! Redirecting...
+      </p>
+      <script>{`setTimeout(() => window.location.href = '/family', 1500);`}</script>
+    </main>
+  );
 }

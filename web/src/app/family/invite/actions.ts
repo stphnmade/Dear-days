@@ -33,7 +33,7 @@ export async function createInvite() {
         familyId_joinedUserId: { familyId, joinedUserId: userId },
       } as any,
       create: {
-        name: user.name ?? "Family Creator",
+        name: "You", // Display "You" for the creator
         family: { connect: { id: familyId } },
         user: { connect: { id: userId } },
       },

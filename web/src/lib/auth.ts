@@ -2,8 +2,10 @@
 import type { NextAuthOptions, DefaultSession } from "next-auth";
 import { getServerSession } from "next-auth";
 import Google from "next-auth/providers/google";
+import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/db";
+import bcrypt from "bcryptjs";
 
 // (Optional) Add `id` to the session's user type
 declare module "next-auth" {
@@ -28,6 +30,63 @@ export const authOptions: NextAuthOptions = {
           access_type: "offline",
           prompt: "consent",
         },
+      },
+    }),
+    Credentials({
+      name: "Email & Password",
+      credentials: {
+        email: {
+          label: "Email",
+          type: "email",
+          placeholder: "you@example.com",
+        },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(
+        credentials
+      ): Promise<{ id: string; email: string; name: string | null } | null> {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error("Email and password are required");
+        }
+
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            password: true, // Explicitly select password field
+          } as any,
+        });
+
+        console.log(
+          "[AUTH] User found:",
+          user?.email,
+          "Has password field:",
+          !!(user as any)?.password
+        );
+
+        // password field exists in schema but TS might not recognize it
+        if (!user || !(user as any).password) {
+          throw new Error("Invalid email or password");
+        }
+
+        const isPasswordValid = await bcrypt.compare(
+          credentials.password,
+          (user as any).password
+        );
+
+        console.log("[AUTH] Password valid:", isPasswordValid);
+
+        if (!isPasswordValid) {
+          throw new Error("Invalid email or password");
+        }
+
+        return {
+          id: (user as any).id,
+          email: (user as any).email,
+          name: (user as any).name,
+        };
       },
     }),
   ],
