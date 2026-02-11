@@ -109,8 +109,8 @@ export default async function ConnectionsPage({
   const healthyCount = platforms.filter((p) => p.active).length;
   const healthyText =
     healthyCount === 3
-      ? "All 3 calendars are healthy."
-      : `${healthyCount} of 3 calendar connections are healthy.`;
+      ? "All 3 calendars are active."
+      : `${healthyCount} of 3 calendar connections are active.`;
 
   const lastRefresh = settings.lastGlobalRefreshAt
     ? new Date(settings.lastGlobalRefreshAt).toLocaleString()
@@ -191,9 +191,9 @@ export default async function ConnectionsPage({
                 } dd-card`}
               >
                 <div className="text-sm font-semibold">{platform.name}</div>
-                <div className="mt-1 text-xs dd-text-muted">
-                  {platform.active ? "Active" : "Inactive"}
-                </div>
+                {platform.active ? (
+                  <div className="mt-1 text-xs dd-text-muted">Active</div>
+                ) : null}
               </article>
             ))}
           </section>
@@ -211,13 +211,11 @@ export default async function ConnectionsPage({
                     Read from selected Google calendars and optionally push Dear Days events.
                   </p>
                 </div>
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-medium ${
-                    google ? "dd-btn-success" : "dd-btn-danger"
-                  }`}
-                >
-                  {google ? "Connected" : "Inactive"}
-                </span>
+                {google ? (
+                  <span className="rounded-full px-3 py-1 text-xs font-medium dd-btn-success">
+                    Active
+                  </span>
+                ) : null}
               </div>
 
               <div className="mt-4 rounded-xl p-3 text-sm dd-card-muted">
