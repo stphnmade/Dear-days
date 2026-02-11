@@ -299,7 +299,7 @@ export default function DashboardCommandCenter({
 
   return (
     <div className="relative z-10 mx-auto w-full max-w-[1440px] px-4 pb-28 pt-6 sm:px-6 lg:px-8">
-      <header className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(420px,640px)]">
+      <header className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(420px,640px)]">
         <div className="rounded-2xl border border-[#2C2C2E] bg-[#1C1C1E] p-5">
           <h1 className="text-2xl font-bold text-white">Welcome back, {userName}</h1>
           <p className="mt-2 text-sm text-[#8E8E93]">
@@ -355,8 +355,8 @@ export default function DashboardCommandCenter({
         </div>
       </header>
 
-      <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(320px,3fr)]">
-        <div className="space-y-6">
+      <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(320px,3fr)]">
+        <div className="min-w-0 space-y-6">
           <article className="rounded-2xl border border-[#2C2C2E] bg-[#1C1C1E] p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -551,7 +551,7 @@ export default function DashboardCommandCenter({
             <h2 className="text-xl font-semibold text-white">Upcoming Milestones</h2>
             <p className="mt-1 text-sm text-[#8E8E93]">Timeline ribbon with sync pulse for each date.</p>
 
-            <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
+            <div className="mt-4 flex w-full gap-3 overflow-x-auto pb-1">
               {timeline.length ? (
                 timeline.map((event) => (
                   <div key={event.id} className="min-w-72 rounded-xl border border-[#2C2C2E] bg-[#151517] p-4">
@@ -596,7 +596,7 @@ export default function DashboardCommandCenter({
           </article>
         </div>
 
-        <aside className="space-y-6">
+        <aside className="min-w-0 space-y-6">
           <article className="rounded-2xl border border-[#2C2C2E] bg-[#1C1C1E] p-6">
             <h2 className="text-xl font-semibold text-white">Dear Days Ticker</h2>
             <div className="mt-3 text-3xl font-bold text-white">{daysUntil ?? "--"} days</div>
