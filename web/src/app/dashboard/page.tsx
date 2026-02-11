@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/db";
 import { getAuthSession } from "@/lib/auth";
-import { getCounts, getUpcomingEvents } from "@/lib/queries";
+import { getCounts } from "@/lib/queries";
 import { getUserGroups } from "@/lib/family";
 
 import OccasionIconsBg from "@/ui/OccasionIconsBg";
@@ -41,15 +41,20 @@ export default async function Dashboard() {
 
   try {
     if (userId) {
-      const [upcomingRaw, countsRaw, rawGroups] = await Promise.all([
-        getUpcomingEvents(userId, 48),
-        getCounts(userId),
-        getUserGroups(userId),
-      ]);
+      const [countsRaw, rawGroups] = await Promise.all([getCounts(userId), getUserGroups(userId)]);
 
       counts = countsRaw;
 
       const groupIds = rawGroups.map((g) => g.id);
+      const timelineRows = await prisma.specialDay.findMany({
+        where: {
+          OR: groupIds.length
+            ? [{ userId }, { familyId: { in: groupIds } }]
+            : [{ userId }],
+        },
+        orderBy: { date: "desc" },
+        take: 240,
+      });
       const families = groupIds.length
         ? await prisma.family.findMany({
             where: { id: { in: groupIds } },
@@ -105,7 +110,7 @@ export default async function Dashboard() {
         };
       });
 
-      events = upcomingRaw.map((event) => ({
+      events = timelineRows.map((event) => ({
         id: event.id,
         title: event.title,
         type: event.type,

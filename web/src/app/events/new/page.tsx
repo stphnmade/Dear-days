@@ -25,7 +25,7 @@ export default async function NewEvent() {
         </Link>
         <h1 className="mb-4 text-2xl font-semibold">Add Special Day</h1>
         <form action={quickAddSpecialDay} className="grid gap-3">
-          <input type="hidden" name="redirectTo" value="/events" />
+          <input type="hidden" name="redirectTo" value="/dashboard" />
           <label className="block">
             <span className="mb-1 block text-sm font-medium">Add to</span>
             <select name="scope" className="w-full rounded-xl px-3 py-2 dd-field">
@@ -78,6 +78,18 @@ export default async function NewEvent() {
             className="rounded-xl px-3 py-2 dd-field"
             required
           />
+          <div>
+            <label htmlFor="event-time" className="mb-1 block font-medium">
+              Time (optional)
+            </label>
+            <input
+              id="event-time"
+              type="time"
+              name="time"
+              className="rounded-xl px-3 py-2 dd-field w-full"
+            />
+            <p className="mt-1 text-xs dd-text-muted">Leave blank for all-day.</p>
+          </div>
           <input
             name="person"
             placeholder="Person (optional)"

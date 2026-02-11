@@ -105,7 +105,7 @@ export default function FamilyCalendar({
 
   return (
     <div className="rounded-xl p-3 dd-card">
-      <div className="flex items-center justify-between mb-2">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setView("month")}
@@ -130,7 +130,7 @@ export default function FamilyCalendar({
         </div>
 
         <div
-          className="flex items-center gap-2 text-sm"
+          className="flex min-w-0 items-center gap-1 text-xs sm:gap-2 sm:text-sm"
           role="group"
           aria-label="Calendar navigation"
         >
@@ -141,7 +141,7 @@ export default function FamilyCalendar({
           >
             ‹
           </button>
-          <div className="px-2" aria-live="polite">
+          <div className="max-w-[9rem] truncate px-1 sm:max-w-none sm:px-2" aria-live="polite">
             {fmtMonthYear(cursor)}
           </div>
           <button
@@ -157,7 +157,7 @@ export default function FamilyCalendar({
       {view === "month" ? (
         <div>
           <div
-            className="mb-2 grid grid-cols-7 gap-1 text-xs dd-text-muted"
+            className="mb-2 grid grid-cols-7 gap-1 text-[10px] dd-text-muted sm:text-xs"
             role="row"
             aria-hidden
           >
@@ -214,27 +214,27 @@ export default function FamilyCalendar({
                   }
                   aria-label={dayLabel}
                   aria-pressed={isSelected}
-                  className={`p-2 h-20 text-left rounded flex flex-col justify-start items-start border ${
+                  className={`h-16 min-w-0 rounded border p-1 text-left flex flex-col justify-start items-start sm:h-20 sm:p-2 ${
                     isSelected ? "border-[var(--dd-accent-blue)]" : "border-[var(--dd-border)]"
                   } ${isCurrentMonth ? "dd-card" : "dd-card-muted dd-text-muted"}`}
                 >
                   <div className="w-full flex justify-between items-start">
-                    <div className="text-sm font-medium" aria-hidden>
+                    <div className="text-xs font-medium sm:text-sm" aria-hidden>
                       {fmtDay(day)}
                     </div>
                     {dayEvents.length > 0 && (
-                      <div className="text-xs" aria-hidden>
+                      <div className="text-[10px] sm:text-xs" aria-hidden>
                         {dayEvents.slice(0, 3).map((e) => (
                           <span
                             key={e.id}
                             title={e.title ?? e.person ?? ""}
-                            className="inline-block ml-1"
+                            className="inline-block ml-0.5 sm:ml-1"
                           >
                             •
                           </span>
                         ))}
                         {dayEvents.length > 3 && (
-                          <span className="ml-1 text-[10px]">
+                          <span className="ml-0.5 text-[10px] sm:ml-1">
                             +{dayEvents.length - 3}
                           </span>
                         )}
@@ -242,7 +242,7 @@ export default function FamilyCalendar({
                     )}
                   </div>
 
-                  <div className="mt-1 w-full text-xs dd-text-muted">
+                  <div className="mt-1 hidden w-full text-xs dd-text-muted sm:block">
                     {dayEvents.slice(0, 2).map((e) => (
                       <div key={e.id} className="truncate">
                         <span className="mr-1" aria-hidden>

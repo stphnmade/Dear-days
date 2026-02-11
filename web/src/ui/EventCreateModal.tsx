@@ -43,6 +43,7 @@ export default function EventCreateModal({
   const [titleValue, setTitleValue] = useState("");
   const [typeValue, setTypeValue] = useState("birthday");
   const [dateValue, setDateValue] = useState(todayYmd);
+  const [timeValue, setTimeValue] = useState("");
   const [personValue, setPersonValue] = useState("");
   const [notesValue, setNotesValue] = useState("");
   const [selectedFamilyId, setSelectedFamilyId] = useState(initialFamilyId);
@@ -60,6 +61,7 @@ export default function EventCreateModal({
           title: titleValue,
           type: typeValue,
           date: dateValue,
+          time: timeValue || null,
           person: personValue,
           notes: notesValue,
           scope,
@@ -74,13 +76,14 @@ export default function EventCreateModal({
       setOpen(false);
       setTitleValue("");
       setDateValue(todayYmd);
+      setTimeValue("");
       setPersonValue("");
       setNotesValue("");
-      const redirectTo = pathname || "/events";
+      const redirectTo = pathname || "/dashboard";
       if (redirectTo === "/events" || redirectTo === "/dashboard" || redirectTo.startsWith("/family")) {
         router.refresh();
       } else {
-        router.push("/events");
+        router.push("/dashboard");
       }
     } catch (e: any) {
       setError(e?.message ?? "Could not create event.");
@@ -182,6 +185,20 @@ export default function EventCreateModal({
                 className="rounded-xl px-3 py-2 dd-field"
                 required
               />
+              <div>
+                <label htmlFor="event-time" className="mb-1 block text-sm font-medium">
+                  Time (optional)
+                </label>
+                <input
+                  id="event-time"
+                  type="time"
+                  name="time"
+                  value={timeValue}
+                  onChange={(e) => setTimeValue(e.target.value)}
+                  className="rounded-xl px-3 py-2 dd-field w-full"
+                />
+                <p className="mt-1 text-xs dd-text-muted">Leave blank to keep this as an all-day event.</p>
+              </div>
               <input
                 name="person"
                 value={personValue}

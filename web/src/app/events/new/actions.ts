@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { specialDaySchema } from "@/lib/validation";
 import { getPrimaryFamilyId } from "@/lib/family";
+import { combineDateAndOptionalTime, normalizeOptionalTimeInput } from "@/lib/event-datetime";
 
 const assertUserId = async (): Promise<string> => {
   const s = await getServerSession(authOptions);
@@ -20,7 +21,7 @@ export async function quickAddSpecialDay(formData: FormData) {
   const userId = await assertUserId();
   const redirectToRaw = formData.get("redirectTo")?.toString().trim();
   const redirectTo =
-    redirectToRaw && redirectToRaw.startsWith("/") ? redirectToRaw : "/events";
+    redirectToRaw && redirectToRaw.startsWith("/") ? redirectToRaw : "/dashboard";
   const scope =
     formData.get("scope")?.toString() === "family" ? "family" : "personal";
   const targetFamilyId = formData.get("targetFamilyId")?.toString().trim();
@@ -36,10 +37,10 @@ export async function quickAddSpecialDay(formData: FormData) {
     throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
 
   const { title, type, date, person, notes } = parsed.data;
-
-  // date at noon (DST-safe)
-  const [y, m, d] = date.split("-").map(Number);
-  const dt = new Date(y, m - 1, d, 12);
+  const rawTime = formData.get("time")?.toString() ?? "";
+  const timeInput = normalizeOptionalTimeInput(rawTime);
+  if (rawTime && !timeInput) throw new Error("Enter a valid time (HH:MM).");
+  const dt = combineDateAndOptionalTime(date, timeInput);
 
   let familyId: string | undefined;
   if (scope === "family") {
@@ -154,8 +155,10 @@ export async function updateEvent(formData: FormData) {
     throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
 
   const { title, type, date, person, notes } = parsed.data;
-  const [y, m, d] = date.split("-").map(Number);
-  const dt = new Date(y, m - 1, d, 12);
+  const rawTime = formData.get("time")?.toString() ?? "";
+  const timeInput = normalizeOptionalTimeInput(rawTime);
+  if (rawTime && !timeInput) throw new Error("Enter a valid time (HH:MM).");
+  const dt = combineDateAndOptionalTime(date, timeInput);
 
   const evt = await prisma.specialDay.findUnique({
     where: { id },

@@ -205,7 +205,11 @@ export default function DashboardCommandCenter({
 
   const now = useMemo(() => new Date(), []);
   const todayKey = toDateKey(now);
-  const nextEvent = filteredEvents.find((event) => event.dateObj >= now) ?? filteredEvents[0] ?? null;
+  const upcomingEvents = useMemo(
+    () => filteredEvents.filter((event) => event.dateObj >= now),
+    [filteredEvents, now]
+  );
+  const nextEvent = upcomingEvents[0] ?? null;
   const daysUntil = nextEvent ? daysBetween(now, nextEvent.dateObj) : null;
 
   const overlapAlerts = useMemo(() => {
@@ -247,19 +251,20 @@ export default function DashboardCommandCenter({
     });
   }, [eventsByDay, now]);
 
-  const timeline = filteredEvents.slice(0, 8);
+  const timeline = upcomingEvents.slice(0, 8);
 
   const groupPulseRows = useMemo(() => {
     return groups.map((group) => {
       const percent = Math.round((group.syncedCount / Math.max(group.memberCount, 1)) * 100);
-      const upcoming = filteredEvents.find((event) => event.familyId === group.id);
+      const upcoming = upcomingEvents.find((event) => event.familyId === group.id);
       return {
         ...group,
         percent,
+        upcomingEventId: upcoming?.id ?? null,
         upcomingLabel: upcoming ? `${upcoming.label} • ${fmtShort.format(upcoming.dateObj)}` : "No upcoming event",
       };
     });
-  }, [groups, filteredEvents]);
+  }, [groups, upcomingEvents]);
 
   const hasUnsynced = groupPulseRows.some((group) => group.syncedCount < group.memberCount);
   const monthTitle = calendarCursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
@@ -490,8 +495,17 @@ export default function DashboardCommandCenter({
                       <div className="mt-1 text-sm font-medium text-white">{fmtShort.format(day)}</div>
                       <div className="mt-2 space-y-1">
                         {dayEvents.slice(0, 3).map((event) => (
-                          <div key={event.id} className="truncate rounded-md bg-[#202024] px-2 py-1 text-[11px] text-[#C8C8CD]">
-                            {event.label}
+                          <div
+                            key={event.id}
+                            className="flex items-center justify-between gap-2 rounded-md bg-[#202024] px-2 py-1"
+                          >
+                            <span className="truncate text-[11px] text-[#C8C8CD]">{event.label}</span>
+                            <Link
+                              href={`/events/${encodeURIComponent(event.id)}/edit`}
+                              className="text-[10px] font-medium text-[#93C5FD] hover:underline"
+                            >
+                              Edit
+                            </Link>
                           </div>
                         ))}
                         {dayEvents.length === 0 ? (
@@ -514,6 +528,14 @@ export default function DashboardCommandCenter({
                       <div className="mt-1 text-xs text-[#8E8E93]">
                         {event.groupName} • {event.source === "GOOGLE" ? "Google" : "Manual"}
                       </div>
+                      <div className="mt-2">
+                        <Link
+                          href={`/events/${encodeURIComponent(event.id)}/edit`}
+                          className="text-xs font-medium text-[#93C5FD] hover:underline"
+                        >
+                          Edit event
+                        </Link>
+                      </div>
                     </div>
                   ))
                 ) : (
@@ -533,7 +555,15 @@ export default function DashboardCommandCenter({
               {timeline.length ? (
                 timeline.map((event) => (
                   <div key={event.id} className="min-w-72 rounded-xl border border-[#2C2C2E] bg-[#151517] p-4">
-                    <div className="text-xs text-[#8E8E93]">{fmtLong.format(event.dateObj)}</div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-xs text-[#8E8E93]">{fmtLong.format(event.dateObj)}</div>
+                      <Link
+                        href={`/events/${encodeURIComponent(event.id)}/edit`}
+                        className="text-xs font-medium text-[#93C5FD] hover:underline"
+                      >
+                        Update
+                      </Link>
+                    </div>
                     <div className="mt-1 truncate text-sm font-semibold text-white">{event.label}</div>
                     <div className="mt-1 text-xs text-[#8E8E93]">
                       {event.familyId ? (
@@ -571,6 +601,16 @@ export default function DashboardCommandCenter({
             <h2 className="text-xl font-semibold text-white">Dear Days Ticker</h2>
             <div className="mt-3 text-3xl font-bold text-white">{daysUntil ?? "--"} days</div>
             <div className="mt-1 text-sm text-[#8E8E93]">until {nextEvent ? nextEvent.label : "your next event"}</div>
+            {nextEvent ? (
+              <div className="mt-2">
+                <Link
+                  href={`/events/${encodeURIComponent(nextEvent.id)}/edit`}
+                  className="text-xs font-medium text-[#93C5FD] hover:underline"
+                >
+                  Edit next event
+                </Link>
+              </div>
+            ) : null}
 
             <div className="mt-4 rounded-xl border border-[#2C2C2E] bg-[#151517] p-3">
               <div className="text-xs uppercase tracking-[0.12em] text-[#8E8E93]">Overlap alerts</div>
@@ -626,7 +666,19 @@ export default function DashboardCommandCenter({
                       RSVP / Sync pulse: {group.percent}% ({group.syncedCount}/{group.memberCount})
                     </div>
                     <div className="mt-2 text-xs text-[#8E8E93]">Member count: {group.memberCount}</div>
-                    <div className="mt-1 text-xs text-[#8E8E93]">Next upcoming event: {group.upcomingLabel}</div>
+                    <div className="mt-1 text-xs text-[#8E8E93]">
+                      Next upcoming event:{" "}
+                      {group.upcomingEventId ? (
+                        <Link
+                          href={`/events/${encodeURIComponent(group.upcomingEventId)}/edit`}
+                          className="text-[#93C5FD] hover:underline"
+                        >
+                          {group.upcomingLabel}
+                        </Link>
+                      ) : (
+                        group.upcomingLabel
+                      )}
+                    </div>
                   </div>
                 ))
               ) : (

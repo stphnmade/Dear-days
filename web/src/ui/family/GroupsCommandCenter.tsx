@@ -101,16 +101,44 @@ type Props = {
   upcomingEvents: UpcomingEvent[];
 };
 
-const CARD =
-  "rounded-2xl border border-[#2C2C2E] bg-[#1C1C1E] text-[#F2F2F5] shadow-[0_12px_30px_rgba(0,0,0,0.2)]";
+const CARD = "rounded-2xl border dd-card";
+const PANEL = "rounded-xl border dd-card-muted";
 const GLASS_BUTTON =
-  "rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white backdrop-blur-sm transition hover:bg-white/20";
+  "rounded-xl border border-[var(--dd-border)] px-3 py-2 text-sm dd-card backdrop-blur-sm transition hover:opacity-90";
 
-const STATUS_META: Record<RSVPStatus, { label: string; icon: string; tone: string }> = {
-  confirmed: { label: "Confirmed", icon: "✅", tone: "text-[#22C55E]" },
-  tentative: { label: "Tentative", icon: "⏳", tone: "text-[#F59E0B]" },
-  declined: { label: "Declined", icon: "❌", tone: "text-[#EF4444]" },
-  no_response: { label: "No Response", icon: "❓", tone: "text-[#9CA3AF]" },
+const STATUS_META: Record<
+  RSVPStatus,
+  {
+    label: string;
+    icon: string;
+    toneClass: string;
+    rowClass: string;
+  }
+> = {
+  confirmed: {
+    label: "Confirmed",
+    icon: "✅",
+    toneClass: "dd-text-success",
+    rowClass: "border-[var(--dd-accent-green)] dd-card",
+  },
+  tentative: {
+    label: "Tentative",
+    icon: "⏳",
+    toneClass: "text-[var(--dd-sand)]",
+    rowClass: "border-[var(--dd-sand)] dd-card-muted",
+  },
+  declined: {
+    label: "Declined",
+    icon: "❌",
+    toneClass: "dd-text-danger",
+    rowClass: "border-[var(--dd-accent-red)] dd-card-muted",
+  },
+  no_response: {
+    label: "No Response",
+    icon: "❓",
+    toneClass: "dd-text-muted",
+    rowClass: "border-[var(--dd-border)] dd-card-muted",
+  },
 };
 
 function initials(name: string) {
@@ -121,6 +149,17 @@ function initials(name: string) {
     .slice(0, 2);
   if (!parts.length) return "?";
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
+}
+
+function scoreToOpacity(score: number) {
+  const normalized = Math.max(0, Math.min(100, score));
+  return 0.08 + normalized / 180;
+}
+
+function overlapSeverityClass(score: number) {
+  if (score >= 80) return "border-[var(--dd-accent-green)] dd-card";
+  if (score >= 60) return "border-[var(--dd-sand)] dd-card-muted";
+  return "border-[var(--dd-accent-red)] dd-card-muted";
 }
 
 export default function GroupsCommandCenter({
@@ -172,16 +211,16 @@ export default function GroupsCommandCenter({
       <section className={`${CARD} p-5`}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-[#A1A1AA]">Group Pulse</p>
+            <p className="text-xs uppercase tracking-[0.18em] dd-text-muted">Group Pulse</p>
             <h2 className="mt-2 text-2xl font-semibold">{familyName}</h2>
-            <p className="mt-1 text-sm text-[#9CA3AF]">
+            <p className="mt-1 text-sm dd-text-muted">
               {syncedCount}/{totalMembers} members have updated sync. {notSynced} need refresh.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <EventCreateModal
               buttonLabel="Add date"
-              buttonClassName="rounded-xl border border-[#3B82F6] bg-[#3B82F6]/90 px-4 py-2 text-sm text-white transition hover:bg-[#3B82F6]"
+              buttonClassName="rounded-xl px-4 py-2 text-sm dd-btn-primary hover:opacity-90"
               groups={eventGroups}
               defaultFamilyId={familyId}
               defaultScope="family"
@@ -196,53 +235,68 @@ export default function GroupsCommandCenter({
         </div>
       </section>
 
-      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.86fr_1fr]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.86fr_1fr]">
         <div className="space-y-6">
           <section className={`${CARD} p-5`}>
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Availability Heatmap</h3>
-              <div className="text-xs text-[#F6C453]">
+              <div className="text-xs text-[var(--dd-sand)]">
                 Best Fit: {bestSlot.label} · {bestSlot.slotName}
               </div>
             </div>
 
-            <div className="grid grid-cols-7 gap-2">
+            <div className="grid grid-cols-7 gap-1 sm:gap-2">
               {heatmap.map((day, index) => {
                 const isBest = day.dayKey === bestSlot.dayKey;
                 const memberGlow = hoveredMember?.availability[index] ?? 0;
-                const intensity = Math.max(0.2, day.score / 100);
                 return (
                   <div
                     key={day.dayKey}
-                    className={`relative rounded-xl border p-3 transition ${
-                      isBest ? "border-[#F6C453] ring-2 ring-[#F6C453]/75" : "border-[#2C2C2E]"
+                    className={`relative min-w-0 overflow-hidden rounded-xl border p-2 sm:p-3 ${
+                      isBest
+                        ? "border-[var(--dd-sand)] dd-card"
+                        : "border-[var(--dd-border)] dd-card-muted"
                     }`}
-                    style={{
-                      background: `linear-gradient(180deg, rgba(59,130,246,${0.15 + intensity * 0.75}) 0%, rgba(16,24,40,0.88) 100%)`,
-                    }}
+                    style={
+                      isBest
+                        ? { boxShadow: "0 0 0 2px var(--dd-sand)" }
+                        : undefined
+                    }
                   >
-                    <div className="text-xs font-medium text-[#E4E4E7]">{day.label}</div>
-                    <div className="text-[11px] text-[#A1A1AA]">{day.shortDate}</div>
-                    <div className="mt-2 text-xl font-semibold">{day.freeCount}</div>
-                    <div className="text-[11px] text-[#A1A1AA]">members free</div>
-                    {isBest ? (
-                      <div className="mt-2 inline-flex rounded-full border border-[#F6C453]/60 bg-[#F6C453]/10 px-2 py-0.5 text-[10px] text-[#F6C453]">
-                        {bestSlot.slotName}
-                      </div>
-                    ) : null}
-                    {hoveredMember ? (
-                      <div className="absolute inset-x-2 bottom-2 h-1.5 rounded-full bg-[#0F172A]">
-                        <div
-                          className="h-full rounded-full bg-[#38BDF8]"
-                          style={{ width: `${Math.max(8, memberGlow)}%` }}
-                        />
-                      </div>
-                    ) : null}
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        backgroundColor: "var(--dd-accent-blue)",
+                        opacity: scoreToOpacity(day.score),
+                      }}
+                    />
+                    <div className="relative">
+                      <div className="truncate text-[10px] font-medium sm:text-xs">{day.label}</div>
+                      <div className="truncate text-[10px] dd-text-muted">{day.shortDate}</div>
+                      <div className="mt-1 text-base font-semibold sm:mt-2 sm:text-xl">{day.freeCount}</div>
+                      <div className="hidden text-[11px] dd-text-muted sm:block">members free</div>
+                      {isBest ? (
+                        <div className="mt-1 inline-flex max-w-full truncate rounded-full border border-[var(--dd-sand)] px-1.5 py-0.5 text-[10px] text-[var(--dd-sand)] sm:mt-2 sm:px-2">
+                          {bestSlot.slotName}
+                        </div>
+                      ) : null}
+                      {hoveredMember ? (
+                        <div className="absolute inset-x-0 bottom-0 h-1.5 rounded-full dd-card-muted">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${Math.max(8, memberGlow)}%`,
+                              backgroundColor: "var(--dd-accent-blue)",
+                            }}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 );
               })}
             </div>
-            <p className="mt-3 text-xs text-[#9CA3AF]">
+            <p className="mt-3 text-xs dd-text-muted">
               Hover a member in the sidebar to light up their individual availability overlay.
             </p>
           </section>
@@ -250,17 +304,17 @@ export default function GroupsCommandCenter({
           <section className={`${CARD} p-5`}>
             <div className="mb-4 flex items-center justify-between gap-3">
               <h3 className="text-lg font-semibold">Upcoming Group Events</h3>
-              <span className="text-xs text-[#A1A1AA]">RSVP Matrix + conflict detection</span>
+              <span className="text-xs dd-text-muted">RSVP Matrix + conflict detection</span>
             </div>
 
             <div className="space-y-4">
               {upcomingEvents.length ? (
                 upcomingEvents.map((event) => (
-                  <article key={event.id} className="rounded-xl border border-[#2C2C2E] bg-[#111827]/55 p-4">
+                  <article key={event.id} className={`${PANEL} p-4`}>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <div className="text-base font-semibold">{event.title}</div>
-                        <div className="text-xs text-[#9CA3AF]">
+                        <div className="text-xs dd-text-muted">
                           {new Date(event.dateIso).toLocaleDateString(undefined, {
                             weekday: "short",
                             month: "short",
@@ -270,20 +324,20 @@ export default function GroupsCommandCenter({
                         </div>
                       </div>
                       <div>
-                        <div className="mb-1 text-right text-[11px] text-[#A1A1AA]">Attendance Summary</div>
+                        <div className="mb-1 text-right text-[11px] dd-text-muted">Attendance Summary</div>
                         <div className="flex justify-end -space-x-2">
                           {event.attendanceSummaryNames.length ? (
                             event.attendanceSummaryNames.map((name) => (
                               <span
                                 key={`${event.id}-${name}`}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#1F2937] bg-[#3B82F6]/80 text-[10px] font-semibold text-white"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--dd-accent-blue)] dd-btn-primary text-[10px] font-semibold"
                                 title={name}
                               >
                                 {initials(name)}
                               </span>
                             ))
                           ) : (
-                            <span className="text-xs text-[#A1A1AA]">No confirmations yet</span>
+                            <span className="text-xs dd-text-muted">No confirmations yet</span>
                           )}
                         </div>
                       </div>
@@ -295,15 +349,15 @@ export default function GroupsCommandCenter({
                         return (
                           <div
                             key={`${event.id}-${row.memberId}`}
-                            className="flex items-center justify-between rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2"
+                            className={`flex items-center justify-between rounded-lg border px-3 py-2 ${meta.rowClass}`}
                           >
                             <div className="truncate text-sm">{row.name}</div>
                             <div className="ml-3 flex items-center gap-2 text-xs">
-                              <span className={meta.tone}>
+                              <span className={meta.toneClass}>
                                 {meta.icon} {meta.label}
                               </span>
                               {row.reason ? (
-                                <span className="text-[#A1A1AA]" title={row.reason}>
+                                <span className="dd-text-muted" title={row.reason}>
                                   ⚠
                                 </span>
                               ) : null}
@@ -315,7 +369,7 @@ export default function GroupsCommandCenter({
                   </article>
                 ))
               ) : (
-                <div className="rounded-xl border border-dashed border-[#3F3F46] p-5 text-sm text-[#A1A1AA]">
+                <div className="rounded-xl border border-dashed p-5 text-sm dd-card-muted dd-text-muted">
                   No upcoming events yet.
                 </div>
               )}
@@ -325,11 +379,11 @@ export default function GroupsCommandCenter({
           <section className={`${CARD} p-5`}>
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Auto-Meeting Hub</h3>
-              <span className="text-xs text-[#A1A1AA]">Google Meet / Zoom</span>
+              <span className="text-xs dd-text-muted">Google Meet / Zoom</span>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex items-center justify-between rounded-xl border border-[#2C2C2E] bg-[#111827]/45 px-3 py-2 text-sm">
+              <label className={`${PANEL} flex items-center justify-between px-3 py-2 text-sm`}>
                 Google Meet auto-create
                 <input
                   type="checkbox"
@@ -338,7 +392,7 @@ export default function GroupsCommandCenter({
                   onChange={(e) => setGoogleMeetEnabled(e.target.checked)}
                 />
               </label>
-              <label className="flex items-center justify-between rounded-xl border border-[#2C2C2E] bg-[#111827]/45 px-3 py-2 text-sm">
+              <label className={`${PANEL} flex items-center justify-between px-3 py-2 text-sm`}>
                 Zoom auto-create
                 <input
                   type="checkbox"
@@ -349,7 +403,7 @@ export default function GroupsCommandCenter({
               </label>
             </div>
 
-            <div className="mt-4 rounded-xl border border-[#2C2C2E] bg-[#111827]/45 p-4">
+            <div className={`${PANEL} mt-4 p-4`}>
               <div className="text-sm">
                 {lowAttendanceEvent
                   ? `Low attendance detected for ${lowAttendanceEvent.title}.`
@@ -357,7 +411,7 @@ export default function GroupsCommandCenter({
               </div>
               <button
                 type="button"
-                className="mt-3 rounded-xl border border-[#3B82F6]/70 bg-[#3B82F6]/15 px-3 py-2 text-sm text-[#BFDBFE] transition hover:bg-[#3B82F6]/25"
+                className="mt-3 rounded-xl px-3 py-2 text-sm dd-btn-primary hover:opacity-90"
                 onClick={() => setShowSuggestions((prev) => !prev)}
               >
                 Propose New Time
@@ -367,12 +421,14 @@ export default function GroupsCommandCenter({
                   {proposedSlots.map((slot) => (
                     <div
                       key={slot.id}
-                      className="flex items-center justify-between rounded-lg border border-[#2C2C2E] bg-[#0B1120] px-3 py-2 text-sm"
+                      className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm ${overlapSeverityClass(
+                        slot.score
+                      )}`}
                     >
                       <span>
                         {slot.label} · {slot.slotName}
                       </span>
-                      <span className="text-[#93C5FD]">{slot.score}% overlap</span>
+                      <span className="dd-text-muted">{slot.score}% overlap</span>
                     </div>
                   ))}
                 </div>
@@ -385,36 +441,41 @@ export default function GroupsCommandCenter({
           <section className={`${CARD} p-5`}>
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Member Directory</h3>
-              <span className="text-xs text-[#A1A1AA]">RBAC</span>
+              <span className="text-xs dd-text-muted">RBAC</span>
             </div>
             <div className="max-h-[560px] space-y-2 overflow-y-auto pr-1">
               {members.map((member) => {
                 const roleTone =
                   member.role === "admin"
-                    ? "bg-[#7F1D1D]/80 text-[#FCA5A5]"
+                    ? "border-[var(--dd-accent-red)] dd-card-muted"
                     : member.role === "planner"
-                    ? "bg-[#1E3A8A]/70 text-[#BFDBFE]"
-                    : "bg-[#27272A] text-[#D4D4D8]";
+                    ? "border-[var(--dd-accent-blue)] dd-card-muted"
+                    : "border-[var(--dd-border)] dd-card-muted";
+
                 const syncTone =
                   member.syncState === "synced"
-                    ? "text-[#22C55E]"
+                    ? "dd-text-success"
                     : member.syncState === "stale"
-                    ? "text-[#F59E0B]"
-                    : "text-[#A1A1AA]";
+                    ? "text-[var(--dd-sand)]"
+                    : "dd-text-muted";
 
                 return (
                   <div
                     key={member.id}
-                    className="rounded-xl border border-[#2C2C2E] bg-[#111827]/45 px-3 py-3 transition hover:border-[#3B82F6]/60"
+                    className={`${PANEL} px-3 py-3 transition hover:border-[var(--dd-accent-blue)]`}
                     onMouseEnter={() => setHoveredMemberId(member.id)}
-                    onMouseLeave={() => setHoveredMemberId((current) => (current === member.id ? null : current))}
+                    onMouseLeave={() =>
+                      setHoveredMemberId((current) => (current === member.id ? null : current))
+                    }
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="truncate text-sm font-medium">{member.name}</div>
-                        <div className="truncate text-xs text-[#A1A1AA]">{member.email ?? "No email"}</div>
+                        <div className="truncate text-xs dd-text-muted">{member.email ?? "No email"}</div>
                       </div>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide ${roleTone}`}>
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${roleTone}`}
+                      >
                         {member.role}
                       </span>
                     </div>
@@ -427,7 +488,7 @@ export default function GroupsCommandCenter({
                           ? "Sync expired"
                           : "Pending"}
                       </span>
-                      <label className="inline-flex items-center gap-1 text-[#A1A1AA]">
+                      <label className="inline-flex items-center gap-1 dd-text-muted">
                         <input
                           type="checkbox"
                           className="h-3.5 w-3.5"
@@ -455,17 +516,14 @@ export default function GroupsCommandCenter({
             <div className="space-y-2">
               {nudgeQueue.length ? (
                 nudgeQueue.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between rounded-lg border border-[#2C2C2E] bg-[#111827]/45 px-3 py-2"
-                  >
+                  <div key={item.id} className={`${PANEL} flex items-center justify-between px-3 py-2`}>
                     <div>
                       <div className="text-sm">{item.name}</div>
-                      <div className="text-xs text-[#A1A1AA]">{item.reason}</div>
+                      <div className="text-xs dd-text-muted">{item.reason}</div>
                     </div>
                     <button
                       type="button"
-                      className="rounded-lg border border-[#2C2C2E] bg-[#1F2937] px-2 py-1 text-xs text-[#E5E7EB] hover:bg-[#2B3A4F]"
+                      className="rounded-lg px-2 py-1 text-xs dd-btn-neutral hover:opacity-90"
                       onClick={() => nudgeItem(item.id)}
                     >
                       {nudged[item.id] ? "Sent" : "Nudge"}
@@ -473,7 +531,7 @@ export default function GroupsCommandCenter({
                   </div>
                 ))
               ) : (
-                <div className="rounded-lg border border-dashed border-[#3F3F46] px-3 py-4 text-sm text-[#A1A1AA]">
+                <div className="rounded-lg border border-dashed px-3 py-4 text-sm dd-card-muted dd-text-muted">
                   Everyone is in sync and no invites are pending.
                 </div>
               )}
@@ -482,7 +540,7 @@ export default function GroupsCommandCenter({
 
           <section className={`${CARD} p-5`}>
             <h3 className="text-lg font-semibold">Invite Module</h3>
-            <p className="mt-1 text-xs text-[#A1A1AA]">Add via email or share a join link.</p>
+            <p className="mt-1 text-xs dd-text-muted">Add via email or share a join link.</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <a
                 href={`mailto:?subject=${encodeURIComponent(`Join ${familyName} on Dear Days`)}&body=${encodeURIComponent(
@@ -510,12 +568,12 @@ export default function GroupsCommandCenter({
                   href={`/family?familyId=${encodeURIComponent(group.id)}`}
                   className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition ${
                     group.id === familyId
-                      ? "border-[#3B82F6]/70 bg-[#1E3A8A]/35"
-                      : "border-[#2C2C2E] bg-[#111827]/45 hover:border-[#3B82F6]/45"
+                      ? "border-[var(--dd-accent-blue)] dd-card"
+                      : "border-[var(--dd-border)] dd-card-muted hover:border-[var(--dd-accent-blue)]"
                   }`}
                 >
                   <span className="truncate">{group.name}</span>
-                  <span className="text-xs uppercase tracking-wide text-[#A1A1AA]">
+                  <span className="text-xs uppercase tracking-wide dd-text-muted">
                     {group.role === "owner" ? "Owner" : "Member"}
                   </span>
                 </Link>
@@ -529,7 +587,7 @@ export default function GroupsCommandCenter({
         <div className="fixed inset-x-4 bottom-4 z-[1100] sm:hidden">
           <InviteFamilyModal
             buttonLabel="Add to Group"
-            buttonClassName="w-full rounded-xl border border-white/25 bg-white/15 px-4 py-3 text-sm font-medium text-white backdrop-blur-md"
+            buttonClassName="w-full rounded-xl border border-[var(--dd-border)] px-4 py-3 text-sm font-medium dd-card backdrop-blur-sm"
             groups={inviteGroups}
             defaultFamilyId={familyId}
           />

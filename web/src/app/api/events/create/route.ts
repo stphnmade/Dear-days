@@ -6,6 +6,7 @@ import { specialDaySchema } from "@/lib/validation";
 import { getPrimaryFamilyId } from "@/lib/family";
 import { pushSpecialDayToGoogle } from "@/lib/google";
 import { normalizeDefaultDestination } from "@/lib/connections";
+import { combineDateAndOptionalTime, normalizeOptionalTimeInput } from "@/lib/event-datetime";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -124,8 +125,13 @@ export async function POST(req: Request) {
   }
 
   const { title, type, date, person, notes } = parsed.data;
-  const [y, m, d] = date.split("-").map(Number);
-  const dt = new Date(y, m - 1, d, 12);
+  const rawTime =
+    typeof payload.time === "string" ? payload.time.trim() : "";
+  const timeInput = normalizeOptionalTimeInput(rawTime);
+  if (rawTime && !timeInput) {
+    return NextResponse.json({ error: "Enter a valid time (HH:MM)." }, { status: 400 });
+  }
+  const dt = combineDateAndOptionalTime(date, timeInput);
 
   const created = await prisma.specialDay.create({
     data: {
