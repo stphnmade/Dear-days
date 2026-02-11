@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import { signOut } from "next-auth/react";
 import DarkModeToggle from "@/ui/DarkModeToggle";
 
 export default function ProfileMenu({
@@ -16,17 +18,19 @@ export default function ProfileMenu({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-full border border-slate-300/70 dark:border-slate-600/60 bg-white/70 dark:bg-slate-900/60 px-2 py-1 shadow hover:bg-white/90 dark:hover:bg-slate-900/80"
+        className="flex items-center gap-2 rounded-full border px-2 py-1 shadow dd-card hover:opacity-90"
         aria-label="Open profile menu"
       >
         {avatar ? (
-          <img
+          <Image
             src={avatar}
             alt={name ?? "Profile"}
+            width={32}
+            height={32}
             className="h-8 w-8 rounded-full"
           />
         ) : (
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-rose-300 to-violet-300" />
+          <div className="h-8 w-8 rounded-full dd-card-muted" />
         )}
         <svg
           width="24"
@@ -41,32 +45,31 @@ export default function ProfileMenu({
         </svg>
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-lg z-50">
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+        <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl border shadow-lg dd-card">
+          <div className="border-b p-4">
             <div className="font-semibold">{name ?? "Profile"}</div>
           </div>
           <div className="flex flex-col gap-2 p-4">
             <Link
               href="/connections"
-              className="rounded px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="rounded px-3 py-2 hover:opacity-90 dd-card-muted"
             >
               Connections
             </Link>
             <DarkModeToggle />
             <Link
               href="/settings"
-              className="rounded px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="rounded px-3 py-2 hover:opacity-90 dd-card-muted"
             >
               Settings
             </Link>
-            <form action="/api/auth/signout" method="post">
-              <button
-                type="submit"
-                className="w-full rounded px-3 py-2 text-left hover:bg-rose-50 dark:hover:bg-white/5 text-rose-700 dark:text-rose-200"
-              >
-                Sign out
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="w-full rounded px-3 py-2 text-left dd-btn-danger"
+            >
+              Sign out
+            </button>
           </div>
         </div>
       )}

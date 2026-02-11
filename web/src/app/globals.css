@@ -1,27 +1,190 @@
 @import "tailwindcss";
 
-/* --- Dear Days background tokens --- */
 :root {
-  /* soft glows */
-  --bgGlow1: rgba(56, 189, 248, 0.18); /* sky-400 */
-  --bgGlow2: rgba(244, 114, 182, 0.14); /* pink-400 */
+  --dd-blue: #3454d1;
+  --dd-green: #50723c;
+  --dd-sand: #c4af9a;
+  --dd-red: #b52003;
+  --dd-ink: #1e1e24;
+  --dd-bg: #f7f3ee;
+  --dd-surface: #ffffff;
+  --dd-surface-muted: #ece1d6;
+  --dd-text: #1e1e24;
+  --dd-text-muted: #5c5c66;
+  --dd-border: rgba(30, 30, 36, 0.28);
+  --dd-overlay: rgba(30, 30, 36, 0.5);
+  --dd-accent-blue: #3454d1;
+  --dd-accent-green: #50723c;
+  --dd-accent-red: #b52003;
 
-  /* icon colors (AA-friendly tints on white) */
-  --cBalloon: #0ea5e9; /* sky-500 */
-  --cBalloon2: #14b8a6; /* teal-500 */
-  --cGift: #f59e0b; /* amber-500 */
-  --cGift2: #ef4444; /* red-500 */
-  --cRings: #8b5cf6; /* violet-500 */
-  --cCake: #22c55e; /* green-500 */
-  --cCalendar: #ec4899; /* pink-500 */
+  --cBalloon: #0ea5e9;
+  --cBalloon2: #14b8a6;
+  --cGift: #f59e0b;
+  --cGift2: #ef4444;
+  --cRings: #8b5cf6;
+  --cCake: #22c55e;
+  --cCalendar: #ec4899;
 }
 
-/* dark mode tweaks */
+html.dark {
+  --dd-bg: #131319;
+  --dd-surface: #1b1b23;
+  --dd-surface-muted: #292933;
+  --dd-text: #f2f2f5;
+  --dd-text-muted: #c1c1cd;
+  --dd-border: rgba(196, 175, 154, 0.3);
+  --dd-overlay: rgba(6, 6, 9, 0.72);
+  --dd-accent-blue: #5673ef;
+  --dd-accent-green: #6a8e54;
+  --dd-accent-red: #d54b31;
+
+  --cBalloon: #6bbcff;
+  --cBalloon2: #59d9c7;
+  --cGift: #f9b43d;
+  --cGift2: #ff7f6b;
+  --cRings: #a98bff;
+  --cCake: #63d982;
+  --cCalendar: #f97db7;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
-    --bgGlow1: rgba(56, 189, 248, 0.1);
-    --bgGlow2: rgba(244, 114, 182, 0.1);
+    color-scheme: dark;
   }
+}
+
+* {
+  border-color: var(--dd-border);
+}
+
+body {
+  background: var(--dd-bg);
+  color: var(--dd-text);
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+a {
+  color: inherit;
+}
+
+.dd-page {
+  color: var(--dd-text);
+}
+
+.dd-card {
+  border: 1px solid var(--dd-border);
+  background: var(--dd-surface);
+  color: var(--dd-text);
+}
+
+.dd-card-muted {
+  border: 1px solid var(--dd-border);
+  background: var(--dd-surface-muted);
+  color: var(--dd-text);
+}
+
+.dd-text-muted {
+  color: var(--dd-text-muted);
+}
+
+.dd-link {
+  color: var(--dd-accent-blue);
+}
+
+.dd-link:hover {
+  text-decoration: underline;
+}
+
+.dd-text-success {
+  color: var(--dd-accent-green);
+}
+
+.dd-text-danger {
+  color: var(--dd-accent-red);
+}
+
+.dd-btn-primary {
+  border: 1px solid var(--dd-accent-blue);
+  background: var(--dd-accent-blue);
+  color: #fff;
+}
+
+.dd-btn-success {
+  border: 1px solid var(--dd-accent-green);
+  background: var(--dd-accent-green);
+  color: #fff;
+}
+
+.dd-btn-danger {
+  border: 1px solid var(--dd-accent-red);
+  background: var(--dd-accent-red);
+  color: #fff;
+}
+
+.dd-btn-neutral {
+  border: 1px solid var(--dd-border);
+  background: var(--dd-surface);
+  color: var(--dd-text);
+}
+
+.dd-modal-backdrop {
+  background: var(--dd-overlay);
+}
+
+.dd-modal-panel {
+  border: 1px solid var(--dd-border);
+  background: var(--dd-surface);
+  color: var(--dd-text);
+}
+
+.dd-field {
+  border: 1px solid var(--dd-border);
+  background: var(--dd-surface);
+  color: var(--dd-text);
+}
+
+.btn {
+  border: 1px solid var(--dd-accent-blue);
+  background: var(--dd-accent-blue);
+  color: #fff;
+  border-radius: 0.75rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  border: 1px solid var(--dd-border);
+  background: var(--dd-surface);
+  color: var(--dd-text);
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+input,
+textarea,
+select {
+  border-color: var(--dd-border);
+  background: var(--dd-surface);
+  color: var(--dd-text);
 }
 
 /* Floating animation (gentle vertical bob + slow drift) */
@@ -68,11 +231,7 @@
   pointer-events: none;
   filter: blur(22px);
   opacity: var(--op, 0.28);
-  background: radial-gradient(
-    35% 35% at 50% 50%,
-    var(--c1, #ffe7ee) 0%,
-    var(--c2, #e6f0ff) 100%
-  );
+  background: var(--c1, var(--dd-surface-muted));
   will-change: transform;
   animation: dd-blob-move var(--dur, 24s) ease-in-out var(--delay, 0s) infinite;
 }
@@ -97,20 +256,8 @@
 }
 
 /* gentle float  Occasions*/
-/* gentle float */
-@keyframes dd-float {
-  0% {
-    transform: translate3d(0, 0, 0);
-  }
-  50% {
-    transform: translate3d(0, -10px, 0);
-  }
-  100% {
-    transform: translate3d(0, 0, 0);
-  }
-}
 .animate-dd-float {
-  animation: dd-float 4s ease-in-out infinite var(--delay, 0s);
+  animation: dd-float 5s ease-in-out infinite var(--delay, 0s);
 }
 @media (prefers-reduced-motion: reduce) {
   .animate-dd-float {
@@ -135,64 +282,79 @@
   }
 }
 
-/* Soft ambient shimmer for glass surfaces */
+/* Soft ambient layer for glass surfaces */
 @keyframes dd-ambient {
   0% {
-    --x1: 20%;
-    --y1: 0%;
-    --x2: 80%;
-    --y2: 100%;
+    opacity: 0.25;
   }
   50% {
-    --x1: 60%;
-    --y1: 20%;
-    --x2: 40%;
-    --y2: 80%;
+    opacity: 0.4;
   }
   100% {
-    --x1: 20%;
-    --y1: 0%;
-    --x2: 80%;
-    --y2: 100%;
+    opacity: 0.25;
   }
 }
 
-/* shared gradient used by the overlay */
 .dd-ambient {
-  /* two very soft radial glows that drift */
-  background: radial-gradient(
-      120% 80% at var(--x1, 20%) var(--y1, 0%),
-      rgba(244, 114, 182, 0.14),
-      transparent 60%
-    ),
-    /* rose-500 */
-      radial-gradient(
-        120% 80% at var(--x2, 80%) var(--y2, 100%),
-        rgba(56, 189, 248, 0.12),
-        transparent 60%
-      ); /* sky-500 */
-  background-size: 200% 200%;
+  background: color-mix(in srgb, var(--dd-surface-muted) 72%, transparent);
   animation: dd-ambient 18s ease-in-out infinite alternate;
-}
-
-@media (prefers-color-scheme: dark) {
-  .dd-ambient {
-    /* a touch dimmer in dark mode */
-    background: radial-gradient(
-        120% 80% at var(--x1, 20%) var(--y1, 0%),
-        rgba(244, 114, 182, 0.1),
-        transparent 60%
-      ),
-      radial-gradient(
-        120% 80% at var(--x2, 80%) var(--y2, 100%),
-        rgba(56, 189, 248, 0.08),
-        transparent 60%
-      );
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .dd-ambient {
     animation: none !important;
   }
+}
+
+/* Compatibility overrides so existing Tailwind arbitrary color classes still render in dark mode */
+html.dark [class*="bg-white" i] {
+  background-color: var(--dd-surface) !important;
+}
+
+html.dark [class*="text-[#1e1e24]" i] {
+  color: var(--dd-text) !important;
+}
+
+html.dark [class*="border-[#1e1e24]" i] {
+  border-color: var(--dd-border) !important;
+}
+
+html.dark [class*="bg-[#c4af9a]" i] {
+  background-color: color-mix(in srgb, var(--dd-surface-muted) 88%, transparent) !important;
+}
+
+html.dark [class*="text-[#3454d1]" i] {
+  color: #93a7ff !important;
+}
+
+html.dark [class*="bg-[#3454d1]" i] {
+  background-color: var(--dd-accent-blue) !important;
+}
+
+html.dark [class*="border-[#3454d1]" i] {
+  border-color: var(--dd-accent-blue) !important;
+}
+
+html.dark [class*="text-[#50723c]" i] {
+  color: #b6daa0 !important;
+}
+
+html.dark [class*="bg-[#50723c]" i] {
+  background-color: var(--dd-accent-green) !important;
+}
+
+html.dark [class*="border-[#50723c]" i] {
+  border-color: var(--dd-accent-green) !important;
+}
+
+html.dark [class*="text-[#b52003]" i] {
+  color: #ffa290 !important;
+}
+
+html.dark [class*="bg-[#b52003]" i] {
+  background-color: var(--dd-accent-red) !important;
+}
+
+html.dark [class*="border-[#b52003]" i] {
+  border-color: var(--dd-accent-red) !important;
 }

@@ -34,14 +34,14 @@ type PaletteKey =
   | "peach";
 
 const COLORS: Record<PaletteKey, string> = {
-  rose: "#f9a8d4",
-  pink: "#fbcfe8",
-  violet: "#e9d5ff",
-  amber: "#fde68a",
-  sky: "#bae6fd",
-  mint: "#bbf7d0",
-  lilac: "#ddd6fe",
-  peach: "#fed7aa",
+  rose: "#B52003",
+  pink: "#C4AF9A",
+  violet: "#3454D1",
+  amber: "#C4AF9A",
+  sky: "#3454D1",
+  mint: "#50723C",
+  lilac: "#50723C",
+  peach: "#C4AF9A",
 };
 
 type Spec = {
@@ -127,11 +127,7 @@ export default function OccasionIconsBg() {
       className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
     >
       {/* very light vignette so content pops */}
-      <div
-        className="absolute inset-0
-        bg-[radial-gradient(70%_55%_at_50%_25%,rgba(255,255,255,.12),transparent_85%)]
-        dark:bg-[radial-gradient(70%_55%_at_50%_25%,rgba(0,0,0,.10),transparent_85%)]"
-      />
+      <div className="absolute inset-0 opacity-20 dd-card-muted" />
 
       {/* sprite sheet */}
       <svg width="0" height="0" className="absolute">

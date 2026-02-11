@@ -13,12 +13,34 @@ async function assertUserId() {
   return (s.user as any).id as string;
 }
 
-export async function createInvite() {
+export type InviteActionState = {
+  ok: boolean;
+  token?: string;
+  familyId?: string;
+};
+
+export async function createInvite(
+  _prevState?: InviteActionState,
+  _formData?: FormData
+): Promise<InviteActionState> {
   const userId = await assertUserId();
-  // Ensure a family exists for this user (create if missing)
-  const familyId = await (
-    await import("@/lib/family")
-  ).ensureOwnedFamilyId(userId);
+  const requestedFamilyId = _formData?.get("familyId")?.toString().trim();
+  let familyId = "";
+
+  if (requestedFamilyId) {
+    const target = await prisma.family.findFirst({
+      where: {
+        id: requestedFamilyId,
+        OR: [{ ownerId: userId }, { members: { some: { joinedUserId: userId } } }],
+      },
+      select: { id: true },
+    });
+    if (!target) throw new Error("You do not have access to this group.");
+    familyId = target.id;
+  } else {
+    // Ensure a personal owned group exists as fallback.
+    familyId = await (await import("@/lib/family")).ensureOwnedFamilyId(userId);
+  }
 
   // Get the user to access their name
   const user = await prisma.user.findUnique({
@@ -54,6 +76,8 @@ export async function createInvite() {
   });
 
   revalidatePath("/family");
+  revalidatePath("/dashboard");
+  return { ok: true, token, familyId };
 }
 
 export async function removeMember(memberId: string) {

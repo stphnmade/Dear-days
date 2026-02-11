@@ -5,15 +5,15 @@ import Link from "next/link";
 
 import { getAuthSession } from "@/lib/auth";
 import { getUpcomingEvents, getCounts } from "@/lib/queries";
+import { getUserGroups } from "@/lib/family";
 
 import GlassCard from "@/ui/GlassCard";
 import ProfileMenu from "@/ui/ProfileMenu";
 import OccasionIconsBg from "@/ui/OccasionIconsBg";
-import SubmitButton from "@/ui/SubmitButton";
+import EventCreateModal from "@/ui/EventCreateModal";
+import InviteFamilyModal from "@/ui/InviteFamilyModal";
 
 import FamilyCalendar from "@/ui/FamilyCalendar"; // NEW: client calendar component
-
-import { quickAddSpecialDay } from "./actions"; // server action we added earlier
 
 const fmtDate = (d: Date | string) =>
   new Intl.DateTimeFormat(undefined, {
@@ -41,12 +41,14 @@ export default async function Dashboard() {
     userId?: string | null;
   }> = [];
   let counts = { events: 0, families: 0, accounts: 0 };
+  let groups: Awaited<ReturnType<typeof getUserGroups>> = [];
 
   try {
     if (userId) {
-      [upcoming, counts] = await Promise.all([
+      [upcoming, counts, groups] = await Promise.all([
         getUpcomingEvents(userId, 6),
         getCounts(userId),
+        getUserGroups(userId),
       ]);
     }
   } catch (e) {
@@ -54,7 +56,7 @@ export default async function Dashboard() {
   }
 
   return (
-    <main className="relative min-h-screen">
+    <main className="relative min-h-screen dd-page">
       {/* soft celebratory background */}
       <OccasionIconsBg />
 
@@ -70,10 +72,10 @@ export default async function Dashboard() {
               className="rounded-full"
             />
           ) : (
-            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-rose-300 to-violet-300" />
+            <div className="h-10 w-10 rounded-full dd-card-muted" />
           )}
           <div>
-            <div className="text-sm text-slate-500 dark:text-slate-400">
+            <div className="text-sm dd-text-muted">
               Welcome back
             </div>
             <div className="text-lg font-semibold">{name}</div>
@@ -94,24 +96,23 @@ export default async function Dashboard() {
                 <span
                   key={ev.id}
                   className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm
-                             bg-white/70 dark:bg-slate-900/60 border border-white/60 dark:border-white/10
-                             backdrop-blur-md shadow-sm"
+                             dd-card shadow-sm"
                 >
                   <span aria-hidden>🎉</span>
                   <span className="font-medium">
                     {ev.title ?? ev.person ?? "Special Day"}
                   </span>
-                  <span className="text-slate-500 dark:text-slate-400">
+                  <span className="dd-text-muted">
                     {fmtDate(ev.date)}
                   </span>
-                  <span className="text-slate-500 dark:text-slate-400">
+                  <span className="dd-text-muted">
                     {visIcon}
                   </span>
                 </span>
               );
             })
           ) : (
-            <span className="text-sm text-slate-600 dark:text-slate-300">
+            <span className="text-sm dd-text-muted">
               No celebrations yet — let’s add your first one below.
             </span>
           )}
@@ -125,7 +126,7 @@ export default async function Dashboard() {
               <h2 className="text-xl font-semibold">Upcoming</h2>
               <Link
                 href="/events"
-                className="text-sm text-violet-700 dark:text-violet-300 hover:underline"
+                className="text-sm dd-link"
               >
                 View all
               </Link>
@@ -138,19 +139,19 @@ export default async function Dashboard() {
                   const visIcon =
                     vis === "family" ? "👪" : vis === "public" ? "🌐" : "🔒";
                   return (
-                    <div
+                <div
                       key={ev.id}
-                      className="flex items-center justify-between rounded-xl bg-white/60 dark:bg-slate-900/40 border border-white/50 dark:border-white/10 px-4 py-3"
+                      className="flex items-center justify-between rounded-xl px-4 py-3 dd-card-muted"
                     >
                       <div className="min-w-0">
                         <div className="truncate font-medium">
                           {ev.title ?? ev.person ?? "Special Day"}
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">
+                        <div className="text-xs dd-text-muted">
                           {fmtDate(ev.date)}
                         </div>
                       </div>
-                      <div className="ml-3 text-sm text-slate-600 dark:text-slate-300">
+                      <div className="ml-3 text-sm dd-text-muted">
                         {visIcon}
                       </div>
                     </div>
@@ -160,34 +161,46 @@ export default async function Dashboard() {
                 <EmptyList
                   title="No upcoming events"
                   hint="Add birthdays, anniversaries, or import from Google Calendar."
-                  action={{ label: "Add special day", href: "/events/new" }}
+                  action={{ label: "Add special day", href: "/events" }}
                 />
               )}
             </div>
           </GlassCard>
 
-          {/* Family */}
+          {/* Groups */}
           <GlassCard accent="rose" className="text-left">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Family</h2>
+              <h2 className="text-xl font-semibold">Groups</h2>
               <Link
                 href="/family"
-                className="text-sm text-rose-700 dark:text-rose-300 hover:underline"
+                className="text-sm dd-link"
               >
                 Manage
               </Link>
             </div>
             <div className="mt-4">
               {counts.families > 0 ? (
-                <div className="text-sm text-slate-700 dark:text-slate-300">
-                  {counts.families} member{counts.families > 1 ? "s" : ""}{" "}
-                  connected.
+                <div className="space-y-2">
+                  <div className="text-sm dd-text-muted">
+                    You are in {counts.families} group{counts.families > 1 ? "s" : ""}.
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {groups.slice(0, 4).map((g) => (
+                      <Link
+                        key={g.id}
+                        href={`/family?familyId=${encodeURIComponent(g.id)}`}
+                        className="rounded-full px-3 py-1 text-xs dd-card-muted"
+                      >
+                        {g.name}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <EmptyList
-                  title="No family added"
-                  hint="Invite relatives to share dates and sync calendars."
-                  action={{ label: "Invite family", href: "/family/invite" }}
+                  title="No groups yet"
+                  hint="Join a group invite or create one from your first event."
+                  action={{ label: "Open groups", href: "/family" }}
                 />
               )}
             </div>
@@ -199,7 +212,7 @@ export default async function Dashboard() {
               <h2 className="text-xl font-semibold">Shared Family Calendar</h2>
               <Link
                 href="/family/calendar"
-                className="text-sm text-amber-700 dark:text-amber-300 hover:underline"
+                className="text-sm dd-link"
               >
                 Open calendar
               </Link>
@@ -214,21 +227,26 @@ export default async function Dashboard() {
 
         {/* quick actions */}
         <div className="mt-8 flex flex-wrap gap-3">
-          <Link
-            href="/events/new"
-            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-white bg-gradient-to-r from-rose-400 via-pink-400 to-violet-400 hover:from-rose-500 hover:via-pink-500 hover:to-violet-500 shadow-md"
-          >
-            ➕ Add special day
-          </Link>
-          <Link
-            href="/family/invite"
-            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 border border-rose-200/70 dark:border-white/10 text-rose-700 hover:bg-rose-50 dark:text-rose-200 dark:hover:bg-white/5"
-          >
-            ✉️ Invite family
-          </Link>
+          <EventCreateModal
+            buttonLabel="Add special day"
+            buttonClassName="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm dd-btn-primary hover:opacity-90"
+            groups={groups.map((g) => ({
+              id: g.id,
+              name: g.name,
+              canPost: g.role === "owner" || g.allowMemberPosting,
+            }))}
+            defaultFamilyId={groups[0]?.id}
+            defaultScope={groups.length ? "family" : "personal"}
+          />
+          <InviteFamilyModal
+            buttonLabel="Invite people"
+            buttonClassName="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm dd-btn-success hover:opacity-90"
+            groups={groups.map((g) => ({ id: g.id, name: g.name }))}
+            defaultFamilyId={groups[0]?.id}
+          />
           <Link
             href="/calendar/google/connect"
-            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 border border-sky-200/70 dark:border-white/10 text-sky-700 hover:bg-sky-50 dark:text-sky-200 dark:hover:bg-white/5"
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm dd-btn-neutral"
           >
             🔗 Sync Google
           </Link>
@@ -248,15 +266,15 @@ function EmptyList({
   action?: { label: string; href: string };
 }) {
   return (
-    <div className="rounded-2xl border border-white/50 dark:border-white/10 bg-white/50 dark:bg-slate-900/40 px-6 py-10 text-center">
+    <div className="rounded-2xl px-6 py-10 text-center dd-card">
       <div className="font-medium">{title}</div>
-      <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+      <div className="mt-1 text-sm dd-text-muted">
         {hint}
       </div>
       {action && (
         <Link
           href={action.href}
-          className="mt-4 inline-flex items-center rounded-xl px-4 py-2 text-white bg-slate-900/80 dark:bg-white/15 hover:opacity-90"
+          className="mt-4 inline-flex items-center rounded-xl px-4 py-2 text-sm dd-btn-primary hover:opacity-90"
         >
           {action.label}
         </Link>

@@ -2,11 +2,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { specialDaySchema } from "@/lib/validation";
-import { getOrCreateDefaultFamily, getOwnedFamilyId } from "@/lib/family";
+import { getPrimaryFamilyId } from "@/lib/family";
 
 const assertUserId = async (): Promise<string> => {
   const s = await getServerSession(authOptions);
@@ -17,6 +18,12 @@ const assertUserId = async (): Promise<string> => {
 // Create
 export async function quickAddSpecialDay(formData: FormData) {
   const userId = await assertUserId();
+  const redirectToRaw = formData.get("redirectTo")?.toString().trim();
+  const redirectTo =
+    redirectToRaw && redirectToRaw.startsWith("/") ? redirectToRaw : "/events";
+  const scope =
+    formData.get("scope")?.toString() === "family" ? "family" : "personal";
+  const targetFamilyId = formData.get("targetFamilyId")?.toString().trim();
 
   const parsed = specialDaySchema.safeParse({
     title: formData.get("title"),
@@ -34,11 +41,47 @@ export async function quickAddSpecialDay(formData: FormData) {
   const [y, m, d] = date.split("-").map(Number);
   const dt = new Date(y, m - 1, d, 12);
 
-  const family = await getOrCreateDefaultFamily(userId);
+  let familyId: string | undefined;
+  if (scope === "family") {
+    const effectiveFamilyId = targetFamilyId || (await getPrimaryFamilyId(userId));
+    if (!effectiveFamilyId) {
+      throw new Error("No group selected.");
+    }
+    let family: { id: string; ownerId: string; allowMemberPosting: boolean } | null =
+      null;
+    try {
+      family = await prisma.family.findFirst({
+        where: {
+          id: effectiveFamilyId,
+          OR: [{ ownerId: userId }, { members: { some: { joinedUserId: userId } } }],
+        },
+        select: { id: true, ownerId: true, allowMemberPosting: true },
+      });
+    } catch (error: any) {
+      const msg = String(error?.message ?? "");
+      if (!msg.includes("allowMemberPosting")) throw error;
+      const legacyFamily = await prisma.family.findFirst({
+        where: {
+          id: effectiveFamilyId,
+          OR: [{ ownerId: userId }, { members: { some: { joinedUserId: userId } } }],
+        },
+        select: { id: true, ownerId: true },
+      });
+      family = legacyFamily
+        ? { ...legacyFamily, allowMemberPosting: true }
+        : null;
+    }
+    if (!family) throw new Error("You do not have access to this group.");
+    const isOwner = family.ownerId === userId;
+    if (!isOwner && !family.allowMemberPosting) {
+      throw new Error("Only owners can post dates to this group.");
+    }
+    familyId = family.id;
+  }
 
   await prisma.specialDay.create({
     data: {
-      familyId: family.id,
+      familyId,
       userId,
       title,
       type,
@@ -50,23 +93,43 @@ export async function quickAddSpecialDay(formData: FormData) {
 
   revalidatePath("/dashboard");
   revalidatePath("/events");
+  revalidatePath(redirectTo);
+  redirect(redirectTo);
 }
 
 // Delete (secured)
 export async function deleteEvent(id: string) {
   const userId = await assertUserId();
 
-  // Only allow delete if the event belongs to the user OR their owned family
-  const ownedFamilyId = await getOwnedFamilyId(userId);
   const evt = await prisma.specialDay.findUnique({
     where: { id },
-    select: { id: true, userId: true, familyId: true },
+    select: {
+      id: true,
+      userId: true,
+      familyId: true,
+      family: {
+        select: {
+          ownerId: true,
+          allowMemberPosting: true,
+          members: {
+            where: { joinedUserId: userId },
+            select: { id: true },
+            take: 1,
+          },
+        },
+      },
+    },
   });
   if (!evt) throw new Error("Not found");
 
-  const canDelete =
-    evt.userId === userId ||
-    (!!ownedFamilyId && evt.familyId === ownedFamilyId);
+  const isOwner = evt.family?.ownerId === userId;
+  const isMember = (evt.family?.members.length ?? 0) > 0;
+  const canDelete = evt.familyId
+    ? isOwner ||
+      (isMember &&
+        evt.userId === userId &&
+        Boolean(evt.family?.allowMemberPosting))
+    : evt.userId === userId;
   if (!canDelete) throw new Error("Forbidden");
 
   await prisma.specialDay.delete({ where: { id } });
@@ -94,16 +157,35 @@ export async function updateEvent(formData: FormData) {
   const [y, m, d] = date.split("-").map(Number);
   const dt = new Date(y, m - 1, d, 12);
 
-  const ownedFamilyId = await getOwnedFamilyId(userId);
   const evt = await prisma.specialDay.findUnique({
     where: { id },
-    select: { id: true, userId: true, familyId: true },
+    select: {
+      id: true,
+      userId: true,
+      familyId: true,
+      family: {
+        select: {
+          ownerId: true,
+          allowMemberPosting: true,
+          members: {
+            where: { joinedUserId: userId },
+            select: { id: true },
+            take: 1,
+          },
+        },
+      },
+    },
   });
   if (!evt) throw new Error("Not found");
 
-  const canUpdate =
-    evt.userId === userId ||
-    (!!ownedFamilyId && evt.familyId === ownedFamilyId);
+  const isOwner = evt.family?.ownerId === userId;
+  const isMember = (evt.family?.members.length ?? 0) > 0;
+  const canUpdate = evt.familyId
+    ? isOwner ||
+      (isMember &&
+        evt.userId === userId &&
+        Boolean(evt.family?.allowMemberPosting))
+    : evt.userId === userId;
   if (!canUpdate) throw new Error("Forbidden");
 
   await prisma.specialDay.update({

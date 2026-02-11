@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { importGoogleSpecialDays } from "@/lib/google";
+import { getPrimaryFamilyId } from "@/lib/family";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -23,25 +24,64 @@ export async function POST(req: Request) {
     );
   }
 
-  const family = await db.family.findFirst({ where: { ownerId: userId } });
-  if (!family) {
-    return NextResponse.json(
-      { error: "No family found for user" },
-      { status: 400 }
-    );
-  }
-
   try {
     // read body to allow options (migrateAll, calendarId)
     let body: any = {};
     try {
       body = (await req.json()) ?? {};
-    } catch (e) {
+    } catch {
       body = {};
     }
 
     const migrateAll = Boolean(body.migrateAll);
     const calendarId = body.calendarId ?? "primary";
+    const requestedFamilyId = String(body.familyId ?? "").trim();
+    const fallbackFamilyId = await getPrimaryFamilyId(userId);
+    const effectiveFamilyId = requestedFamilyId || fallbackFamilyId;
+    if (!effectiveFamilyId) {
+      return NextResponse.json(
+        { error: "No group selected for Google import" },
+        { status: 400 }
+      );
+    }
+
+    let family: { id: string; ownerId: string; allowMemberPosting: boolean } | null =
+      null;
+    try {
+      family = await db.family.findFirst({
+        where: {
+          id: effectiveFamilyId,
+          OR: [{ ownerId: userId }, { members: { some: { joinedUserId: userId } } }],
+        },
+        select: { id: true, ownerId: true, allowMemberPosting: true },
+      });
+    } catch (error: any) {
+      const msg = String(error?.message ?? "");
+      if (!msg.includes("allowMemberPosting")) throw error;
+      const legacyFamily = await db.family.findFirst({
+        where: {
+          id: effectiveFamilyId,
+          OR: [{ ownerId: userId }, { members: { some: { joinedUserId: userId } } }],
+        },
+        select: { id: true, ownerId: true },
+      });
+      family = legacyFamily
+        ? { ...legacyFamily, allowMemberPosting: true }
+        : null;
+    }
+    if (!family) {
+      return NextResponse.json(
+        { error: "You do not have access to this group" },
+        { status: 403 }
+      );
+    }
+    const isOwner = family.ownerId === userId;
+    if (!isOwner && !family.allowMemberPosting) {
+      return NextResponse.json(
+        { error: "Only owners can import dates for this group" },
+        { status: 403 }
+      );
+    }
 
     const result = await importGoogleSpecialDays({
       userId,

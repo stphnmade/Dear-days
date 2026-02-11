@@ -40,13 +40,13 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto max-w-md p-6 min-h-screen flex items-center justify-center">
+    <main className="mx-auto flex min-h-screen max-w-md items-center justify-center p-6 dd-page">
       <GlassCard accent="sky" className="w-full">
         <h1 className="text-2xl font-semibold mb-2">Sign In</h1>
-        <p className="text-sm text-slate-600 mb-6">Welcome back to Dear Days</p>
+        <p className="mb-6 text-sm dd-text-muted">Welcome back to Dear Days</p>
 
         {error && (
-          <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg mb-4">
+          <div className="mb-4 rounded-lg p-3 text-sm dd-card-muted">
             {error}
           </div>
         )}
@@ -61,7 +61,7 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
-              className="w-full rounded-lg border px-3 py-2 text-sm"
+              className="w-full rounded-lg px-3 py-2 text-sm dd-field"
             />
           </div>
 
@@ -73,14 +73,14 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Your password"
               required
-              className="w-full rounded-lg border px-3 py-2 text-sm"
+              className="w-full rounded-lg px-3 py-2 text-sm dd-field"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-sky-500 text-white py-2 font-medium disabled:opacity-50"
+            className="w-full rounded-lg py-2 font-medium dd-btn-primary disabled:opacity-50"
           >
             {loading ? "Signing in..." : "Sign In with Email"}
           </button>
@@ -88,10 +88,10 @@ export default function LoginPage() {
 
         <div className="relative mb-6">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-300"></div>
+            <div className="w-full border-t"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white dark:bg-slate-900">Or</span>
+            <span className="px-2 dd-card">Or</span>
           </div>
         </div>
 
@@ -99,7 +99,7 @@ export default function LoginPage() {
         <button
           onClick={handleGoogleLogin}
           disabled={loading}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 font-medium hover:bg-slate-50 disabled:opacity-50 flex items-center justify-center gap-2"
+          className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 font-medium dd-btn-neutral disabled:opacity-50"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -122,13 +122,13 @@ export default function LoginPage() {
           Sign In with Google
         </button>
 
-        <div className="mt-6 pt-6 border-t">
-          <p className="text-sm text-slate-600 mb-3">
+        <div className="mt-6 border-t pt-6">
+          <p className="mb-3 text-sm dd-text-muted">
             Don&apos;t have an account?
           </p>
           <Link
             href="/auth/signup"
-            className="block text-center rounded-lg border px-3 py-2 text-sm font-medium hover:bg-slate-50"
+            className="block rounded-lg px-3 py-2 text-center text-sm font-medium dd-btn-neutral"
           >
             Create Account
           </Link>

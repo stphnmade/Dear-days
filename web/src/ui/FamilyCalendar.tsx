@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export default function FamilyCalendar({
   events,
@@ -12,6 +12,7 @@ export default function FamilyCalendar({
     person?: string | null;
   }>;
 }) {
+  const [mounted, setMounted] = useState(false);
   const [view, setView] = useState<"month" | "list">("month");
   const [cursor, setCursor] = useState(() => {
     const d = new Date();
@@ -20,12 +21,31 @@ export default function FamilyCalendar({
   });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const normalizedEvents = useMemo(() => {
     return (events ?? []).map((e) => ({
       ...e,
       date: new Date(e.date),
     }));
   }, [events]);
+
+  const toLocalKey = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+
+  const formatLocalKey = (
+    key: string,
+    opts?: Intl.DateTimeFormatOptions
+  ) => {
+    const [y, m, d] = key.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, opts);
+  };
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
@@ -48,7 +68,7 @@ export default function FamilyCalendar({
   const eventsByDate = useMemo(() => {
     const map = new Map<string, typeof normalizedEvents>();
     for (const ev of normalizedEvents) {
-      const key = ev.date.toISOString().slice(0, 10);
+      const key = toLocalKey(ev.date);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(ev);
     }
@@ -75,15 +95,23 @@ export default function FamilyCalendar({
   const visIcon = (v?: string | null) =>
     v === "family" ? "👪" : v === "public" ? "🌐" : "🔒";
 
+  if (!mounted) {
+    return (
+      <div className="rounded-xl p-3 dd-card">
+        <div className="text-sm dd-text-muted">Loading calendar…</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="rounded-xl border border-white/50 dark:border-white/10 bg-white/40 dark:bg-slate-900/30 p-3">
+    <div className="rounded-xl p-3 dd-card">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setView("month")}
             aria-label="Switch to month view"
             className={`px-2 py-1 rounded ${
-              view === "month" ? "bg-white/70 dark:bg-slate-800/50" : ""
+              view === "month" ? "dd-btn-primary" : "dd-card-muted"
             }`}
             aria-pressed={view === "month"}
           >
@@ -93,7 +121,7 @@ export default function FamilyCalendar({
             onClick={() => setView("list")}
             aria-label="Switch to list view"
             className={`px-2 py-1 rounded ${
-              view === "list" ? "bg-white/70 dark:bg-slate-800/50" : ""
+              view === "list" ? "dd-btn-primary" : "dd-card-muted"
             }`}
             aria-pressed={view === "list"}
           >
@@ -109,7 +137,7 @@ export default function FamilyCalendar({
           <button
             onClick={goPrev}
             aria-label="Previous month"
-            className="px-2 py-1 rounded hover:bg-white/20"
+            className="px-2 py-1 rounded hover:opacity-85 dd-card-muted"
           >
             ‹
           </button>
@@ -119,7 +147,7 @@ export default function FamilyCalendar({
           <button
             onClick={goNext}
             aria-label="Next month"
-            className="px-2 py-1 rounded hover:bg-white/20"
+            className="px-2 py-1 rounded hover:opacity-85 dd-card-muted"
           >
             ›
           </button>
@@ -129,7 +157,7 @@ export default function FamilyCalendar({
       {view === "month" ? (
         <div>
           <div
-            className="grid grid-cols-7 gap-1 text-xs text-slate-500 mb-2"
+            className="mb-2 grid grid-cols-7 gap-1 text-xs dd-text-muted"
             role="row"
             aria-hidden
           >
@@ -162,11 +190,11 @@ export default function FamilyCalendar({
             aria-label={`Month view for ${fmtMonthYear(cursor)}`}
           >
             {monthGrid.map((day) => {
-              const key = day.toISOString().slice(0, 10);
+              const key = toLocalKey(day);
               const dayEvents = eventsByDate.get(key) ?? [];
               const isCurrentMonth = day.getMonth() === month;
               const isSelected = selectedDate === key;
-              const dayLabel = `${new Date(key).toLocaleDateString(undefined, {
+              const dayLabel = `${formatLocalKey(key, {
                 weekday: "long",
                 year: "numeric",
                 month: "long",
@@ -187,8 +215,8 @@ export default function FamilyCalendar({
                   aria-label={dayLabel}
                   aria-pressed={isSelected}
                   className={`p-2 h-20 text-left rounded flex flex-col justify-start items-start border ${
-                    isSelected ? "border-amber-300" : "border-transparent"
-                  } ${isCurrentMonth ? "" : "opacity-50"}`}
+                    isSelected ? "border-[var(--dd-accent-blue)]" : "border-[var(--dd-border)]"
+                  } ${isCurrentMonth ? "dd-card" : "dd-card-muted dd-text-muted"}`}
                 >
                   <div className="w-full flex justify-between items-start">
                     <div className="text-sm font-medium" aria-hidden>
@@ -214,7 +242,7 @@ export default function FamilyCalendar({
                     )}
                   </div>
 
-                  <div className="mt-1 w-full text-xs text-slate-600 dark:text-slate-300">
+                  <div className="mt-1 w-full text-xs dd-text-muted">
                     {dayEvents.slice(0, 2).map((e) => (
                       <div key={e.id} className="truncate">
                         <span className="mr-1" aria-hidden>
@@ -233,19 +261,24 @@ export default function FamilyCalendar({
 
           {selectedDate && (
             <div
-              className="mt-3 border-t pt-3 text-sm"
+              className="mt-3 border-t border-[var(--dd-border)] pt-3 text-sm"
               aria-live="polite"
               aria-atomic="true"
             >
-              <div className="font-medium mb-2">Events on {selectedDate}</div>
+              <div className="font-medium mb-2">
+                Events on {formatLocalKey(selectedDate)}
+              </div>
               {(eventsByDate.get(selectedDate) ?? []).map((e) => (
-                <div key={e.id} className="py-2 border-b last:border-b-0">
+                <div
+                  key={e.id}
+                  className="border-b border-[var(--dd-border)] py-2 last:border-b-0"
+                >
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="font-medium">
                         {e.title ?? e.person ?? "Special Day"}
                       </div>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs dd-text-muted">
                         {e.date.toLocaleTimeString?.() ?? ""}
                       </div>
                     </div>
@@ -256,7 +289,7 @@ export default function FamilyCalendar({
                 </div>
               ))}
               {(eventsByDate.get(selectedDate) ?? []).length === 0 && (
-                <div className="text-slate-500">No events</div>
+                <div className="dd-text-muted">No events</div>
               )}
             </div>
           )}
@@ -271,12 +304,10 @@ export default function FamilyCalendar({
                 key={dayKey}
                 className="py-1"
                 role="group"
-                aria-label={`Events for ${new Date(
-                  dayKey
-                ).toLocaleDateString()}`}
+                aria-label={`Events for ${formatLocalKey(dayKey)}`}
               >
-                <div className="text-xs text-slate-500">
-                  {new Date(dayKey).toLocaleDateString()}
+                <div className="text-xs dd-text-muted">
+                  {formatLocalKey(dayKey)}
                 </div>
                 {dayEvents.map((e) => (
                   <div
@@ -285,13 +316,13 @@ export default function FamilyCalendar({
                     role="article"
                     aria-label={`${
                       e.title ?? e.person ?? "Special Day"
-                    } on ${new Date(dayKey).toLocaleDateString()}`}
+                    } on ${formatLocalKey(dayKey)}`}
                   >
                     <div className="min-w-0">
                       <div className="truncate font-medium">
                         {e.title ?? e.person ?? "Special Day"}
                       </div>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs dd-text-muted">
                         {e.date.toLocaleTimeString?.()}
                       </div>
                     </div>

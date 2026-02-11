@@ -15,11 +15,7 @@ export default function DarkModeToggle() {
     <button
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="inline-flex items-center gap-2 rounded-xl px-3 py-2
-                 border border-slate-300/70 dark:border-slate-600/60
-                 bg-white/70 dark:bg-slate-900/60 backdrop-blur
-                 hover:bg-white/90 dark:hover:bg-slate-900/80
-                 text-slate-700 dark:text-slate-200"
+      className="inline-flex items-center gap-2 rounded-xl dd-btn-neutral px-3 py-2 hover:opacity-90"
       aria-label="Toggle dark mode"
       title="Toggle dark mode"
     >

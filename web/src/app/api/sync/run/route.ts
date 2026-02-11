@@ -2,7 +2,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
 import { google } from "googleapis";
-import { DateTime } from "luxon";
 
 const prisma = new PrismaClient();
 

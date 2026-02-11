@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 
-export default function ImportGoogleButton() {
+export default function ImportGoogleButton({ familyId }: { familyId: string }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -9,7 +9,7 @@ export default function ImportGoogleButton() {
     setLoading(true);
     setMessage(null);
     try {
-      const body = { migrateAll };
+      const body = { migrateAll, familyId };
       const res = await fetch("/api/connections/import-google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -54,29 +54,29 @@ export default function ImportGoogleButton() {
   const [migrateAll, setMigrateAll] = useState(false);
 
   return (
-    <div>
+    <div className="space-y-3">
       <div className="flex items-center gap-3">
         <button
           onClick={doImport}
           disabled={loading}
-          className="rounded-xl border px-4 py-2 hover:opacity-90"
+          className="rounded-xl px-4 py-2 text-sm dd-btn-primary hover:opacity-90 disabled:opacity-60"
           aria-busy={loading}
         >
           {loading ? "Importing…" : "Import from Google Calendar"}
         </button>
-        <label className="inline-flex items-center gap-2 text-sm">
+        <label className="inline-flex items-center gap-2 text-sm dd-text-muted">
           <input
             type="checkbox"
             checked={migrateAll}
             onChange={(e) => setMigrateAll(e.target.checked)}
-            className="w-4 h-4"
+            className="h-4 w-4"
           />
           Migrate all events
         </label>
       </div>
       {message && (
         <div
-          className="mt-2 text-sm text-slate-600"
+          className="text-sm dd-text-muted"
           role="status"
           aria-live="polite"
         >

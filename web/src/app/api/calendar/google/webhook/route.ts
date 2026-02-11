@@ -4,7 +4,7 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 // Google posts notifications with X-Goog-* headers
-export async function POST(req: Request) {
+export async function POST() {
   const h = headers();
   const channelId = (await h).get("X-Goog-Channel-ID") || "";
   const resourceId = (await h).get("X-Goog-Resource-ID") || "";

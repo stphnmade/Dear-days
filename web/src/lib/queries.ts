@@ -1,12 +1,13 @@
 // src/lib/queries.ts
 import { prisma } from "@/lib/db";
-import { getOwnedFamilyId } from "@/lib/family";
+import { getAccessibleFamilyIds } from "@/lib/family";
 
 /** Upcoming events (both personal and family), soonest first. */
 export async function getUpcomingEvents(userId: string, limit = 6) {
-  const familyId = await getOwnedFamilyId(userId);
-
-  const orFilters = familyId ? [{ userId }, { familyId }] : [{ userId }];
+  const familyIds = await getAccessibleFamilyIds(userId);
+  const orFilters = familyIds.length
+    ? [{ userId }, { familyId: { in: familyIds } }]
+    : [{ userId }];
 
   return prisma.specialDay.findMany({
     where: {
@@ -29,17 +30,19 @@ export async function getUpcomingEvents(userId: string, limit = 6) {
 
 /** Count summary for the dashboard. */
 export async function getCounts(userId: string) {
-  const familyId = await getOwnedFamilyId(userId);
+  const familyIds = await getAccessibleFamilyIds(userId);
 
-  const [events, families, accounts] = await Promise.all([
+  const [events, accounts] = await Promise.all([
     prisma.specialDay.count({
-      where: { OR: familyId ? [{ userId }, { familyId }] : [{ userId }] },
+      where: {
+        OR: familyIds.length
+          ? [{ userId }, { familyId: { in: familyIds } }]
+          : [{ userId }],
+      },
     }),
-    familyId
-      ? prisma.familyMember.count({ where: { familyId } })
-      : Promise.resolve(0),
     prisma.account.count({ where: { userId } }),
   ]);
 
+  const families = familyIds.length;
   return { events, families, accounts };
 }

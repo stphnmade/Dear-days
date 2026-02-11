@@ -1,196 +1,215 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getOwnedFamilyId } from "@/lib/family";
-import { createInvite, removeMember } from "./invite/actions";
+import { getUserGroups } from "@/lib/family";
+import { leaveFamily } from "./actions";
 import SubmitButton from "@/ui/SubmitButton";
 import GlassCard from "@/ui/GlassCard";
-import ImportGoogleButton from "@/ui/ImportGoogleButton";
-import { redirect } from "next/navigation";
+import InviteFamilyModal from "@/ui/InviteFamilyModal";
+import EventCreateModal from "@/ui/EventCreateModal";
 
-export default async function FamilyPage() {
-  const s = await getAuthSession();
-  if (!s?.user) return null;
-  const userId = (s.user as any).id as string;
+type SearchParams = Promise<{ familyId?: string }>;
 
-  const familyId = await getOwnedFamilyId(userId);
-  if (!familyId) {
+export default async function FamilyPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const session = await getAuthSession();
+  if (!session?.user) redirect("/");
+  const userId = (session.user as any).id as string;
+  const { familyId: requestedFamilyId } = await searchParams;
+
+  const groups = await getUserGroups(userId);
+  if (!groups.length) {
     return (
-      <main className="mx-auto max-w-3xl p-6">
-        <h1 className="text-2xl font-semibold">Family</h1>
-        <p className="mt-2 text-sm opacity-70">
-          No family found. Create one by adding your first special day.
-        </p>
+      <main className="mx-auto w-[92%] max-w-4xl p-6 dd-page">
+        <div className="rounded-2xl p-6 dd-card">
+          <h1 className="text-2xl font-semibold">Groups</h1>
+          <p className="mt-2 text-sm dd-text-muted">
+            You are not a member of any groups yet. Create your first event or accept an invite to get started.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link href="/dashboard" className="rounded-xl px-4 py-2 text-sm dd-btn-neutral">
+              Back to Dashboard
+            </Link>
+          </div>
+        </div>
       </main>
     );
   }
-  const family = await prisma.family.findUnique({ where: { id: familyId } });
-  if (!family) {
-    return (
-      <main className="mx-auto max-w-3xl p-6">
-        <h1 className="text-2xl font-semibold">Family</h1>
-        <p className="mt-2 text-sm opacity-70">
-          No family found. Create one by adding your first special day.
-        </p>
-      </main>
-    );
-  }
 
-  const members = await prisma.familyMember.findMany({
-    where: { familyId: family.id },
-    include: { user: true },
-    orderBy: { createdAt: "asc" },
+  const activeGroup =
+    groups.find((g) => g.id === requestedFamilyId) ?? groups[0];
+
+  const family = await prisma.family.findUnique({
+    where: { id: activeGroup.id },
+    include: {
+      owner: { select: { id: true, name: true, email: true } },
+      members: {
+        include: { user: { select: { id: true, name: true, email: true } } },
+        orderBy: { createdAt: "asc" },
+      },
+    },
   });
+  if (!family) redirect("/dashboard");
 
-  const invites = await prisma.invitation.findMany({
-    where: { familyId: family.id, status: "pending" },
-    orderBy: { createdAt: "desc" },
-    take: 5,
-  });
-
+  const isOwner = family.ownerId === userId;
+  const invites = isOwner
+    ? await prisma.invitation.findMany({
+        where: { familyId: family.id, status: "pending" },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      })
+    : [];
   const eventsCount = await prisma.specialDay.count({
     where: { familyId: family.id },
   });
 
-  const familyIdConst = family.id;
-
-  async function updateFamilyName(formData: FormData) {
-    "use server";
-    const name = formData.get("name")?.toString();
-    if (!name) return;
-    await prisma.family.update({
-      where: { id: familyIdConst },
-      data: { name },
-    });
-    // After updating, navigate back to the family page so the server
-    // component re-renders with the updated name.
-    redirect(`/family`);
-  }
+  const groupOptions = groups.map((g) => ({
+    id: g.id,
+    name: g.name,
+    canPost: g.role === "owner" || g.allowMemberPosting,
+  }));
+  const inviteGroups = groups.map((g) => ({ id: g.id, name: g.name }));
+  const ownerIsListed = family.members.some((m) => m.joinedUserId === family.ownerId);
+  const displayMembers = ownerIsListed
+    ? family.members
+    : [
+        {
+          id: `owner-${family.ownerId}`,
+          joinedUserId: family.ownerId,
+          name: family.owner.name ?? "Owner",
+          email: family.owner.email ?? null,
+          user: family.owner,
+        },
+        ...family.members,
+      ];
 
   return (
-    <main className="mx-auto w-[80%] max-w-7xl p-6">
-      {/* Hero - full width big snapshot card */}
+    <main className="mx-auto w-[92%] max-w-7xl p-6 dd-page">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">Groups</h1>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/dashboard" className="rounded-xl px-3 py-2 text-sm dd-btn-neutral">
+            Dashboard
+          </Link>
+          <Link
+            href={`/connections?familyId=${encodeURIComponent(family.id)}`}
+            className="rounded-xl px-3 py-2 text-sm dd-btn-neutral"
+          >
+            Connections
+          </Link>
+        </div>
+      </div>
+
       <div className="mb-6">
         <GlassCard accent="violet" className="text-left">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-sm text-slate-500">Family Dashboard</div>
-              <div className="text-2xl font-semibold">{family.name}</div>
-              <div className="mt-2 text-sm text-slate-600">
-                Members: {members.length} • Events: {eventsCount}
+              <div className="text-sm dd-text-muted">
+                Active group · {isOwner ? "Owner" : "Member"}
               </div>
-            </div>
-            <div className="text-right">
-              <Link
-                href="/connections"
-                className="text-sm text-slate-500 underline"
-              >
-                Connections
-              </Link>
+              <div className="text-2xl font-semibold">{family.name}</div>
+              <div className="mt-2 text-sm dd-text-muted">
+                Members: {displayMembers.length} • Events: {eventsCount}
+              </div>
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-lg bg-white/20 p-4">
-              <div className="text-sm text-slate-500">Upcoming events</div>
-              <div className="text-xl font-semibold mt-1">{eventsCount}</div>
-            </div>
-            <div className="rounded-lg bg-white/20 p-4">
-              <div className="text-sm text-slate-500">Members</div>
-              <div className="text-xl font-semibold mt-1">{members.length}</div>
-            </div>
-            <div className="rounded-lg bg-white/20 p-4">
-              <div className="text-sm text-slate-500">Pending invites</div>
-              <div className="text-xl font-semibold mt-1">{invites.length}</div>
-            </div>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <InviteFamilyModal
+              buttonLabel="Invite people"
+              groups={inviteGroups}
+              defaultFamilyId={family.id}
+            />
+            <EventCreateModal
+              buttonLabel="Add date"
+              buttonClassName="rounded-xl px-4 py-2 text-sm dd-btn-primary hover:opacity-90"
+              groups={groupOptions}
+              defaultFamilyId={family.id}
+              defaultScope="family"
+            />
+            {isOwner ? (
+              <Link
+                href={`/family/${family.id}/manage`}
+                className="rounded-xl px-4 py-2 text-sm dd-btn-neutral"
+              >
+                Advanced settings
+              </Link>
+            ) : (
+              <form action={leaveFamily.bind(null, family.id)}>
+                <SubmitButton theme="danger">Leave group</SubmitButton>
+              </form>
+            )}
           </div>
         </GlassCard>
       </div>
 
-      {/* Smaller cards below hero in a responsive grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <GlassCard accent="amber" className="text-left" size="compact">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm text-slate-500">Invites</div>
-              <div className="text-lg font-semibold">Pending</div>
-            </div>
-            <div className="text-sm opacity-60">{invites.length}</div>
-          </div>
-
-          <div className="mt-4 space-y-2 max-h-36 overflow-y-auto">
-            {invites.length ? (
-              invites.map((inv) => (
-                <div
-                  key={inv.id}
-                  className="flex items-center justify-between gap-3"
-                >
-                  <div className="text-sm truncate max-w-[14rem]">
-                    /invite/{inv.token}
-                  </div>
-                  <div className="text-xs opacity-60">
-                    {new Date(inv.expiresAt).toISOString().slice(0, 10)}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-sm text-slate-600">No pending invites</div>
-            )}
-          </div>
-        </GlassCard>
-
-        <GlassCard accent="rose" className="text-left" size="compact">
-          <div>
-            <div className="text-sm text-slate-500">Members</div>
-            <div className="text-lg font-semibold">{members.length}</div>
-          </div>
-          <div className="mt-4 space-y-2">
-            {members.slice(0, 6).map((m) => (
-              <div key={m.id} className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-rose-300 to-violet-300 flex items-center justify-center text-white text-sm">
-                  {((m.user?.name ?? m.name ?? "?").split(" ")[0] || "?")[0]}
-                </div>
-                <div className="text-sm truncate">
-                  {m.user?.name ?? m.name ?? "(pending)"}
-                </div>
-              </div>
+          <div className="text-sm dd-text-muted">Your groups</div>
+          <div className="mt-3 space-y-2">
+            {groups.map((g) => (
+              <Link
+                key={g.id}
+                href={`/family?familyId=${encodeURIComponent(g.id)}`}
+                className={`flex items-center justify-between rounded-lg px-3 py-2 ${
+                  g.id === family.id ? "dd-card" : "dd-card-muted"
+                }`}
+              >
+                <span className="truncate">{g.name}</span>
+                <span className="text-xs dd-text-muted">
+                  {g.role === "owner" ? "Owner" : "Member"}
+                </span>
+              </Link>
             ))}
           </div>
         </GlassCard>
 
-        <GlassCard accent="sky" className="text-left" size="compact">
-          <div>
-            <div className="text-sm text-slate-500">Invite</div>
-            <div className="text-lg font-semibold">Invite family</div>
-          </div>
-          <div className="mt-4">
-            <Link
-              href="/family/invite"
-              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 bg-rose-400 text-white"
-            >
-              Invite family
-            </Link>
+        <GlassCard accent="rose" className="text-left" size="compact">
+          <div className="text-sm dd-text-muted">Members</div>
+          <div className="mt-3 space-y-2">
+            {displayMembers.map((m) => {
+              const isFamilyOwner = m.joinedUserId === family.ownerId;
+              return (
+                <div key={m.id} className="flex items-center justify-between rounded-lg px-3 py-2 dd-card-muted">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{m.user?.name ?? m.name}</div>
+                    <div className="truncate text-xs dd-text-muted">
+                      {m.user?.email ?? m.email ?? "No email"}
+                    </div>
+                  </div>
+                  <span className="ml-2 text-xs">{isFamilyOwner ? "Owner" : "Member"}</span>
+                </div>
+              );
+            })}
           </div>
         </GlassCard>
 
-        <GlassCard accent="slate" className="text-left" size="compact">
-          <div>
-            <div className="text-sm text-slate-500">Customize</div>
-            <div className="text-lg font-semibold">Family profile</div>
+        <GlassCard accent="sky" className="text-left" size="compact">
+          <div className="text-sm dd-text-muted">Invites</div>
+          <div className="mt-3 space-y-2">
+            {isOwner ? (
+              invites.length ? (
+                invites.map((inv) => (
+                  <div key={inv.id} className="rounded-lg px-3 py-2 dd-card-muted">
+                    <div className="truncate text-sm">/invite/{inv.token}</div>
+                    <div className="text-xs dd-text-muted">
+                      Expires {new Date(inv.expiresAt).toISOString().slice(0, 10)}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm dd-text-muted">No pending invites.</div>
+              )
+            ) : (
+              <div className="text-sm dd-text-muted">
+                Invite links are managed by group owners.
+              </div>
+            )}
           </div>
-          <form action={updateFamilyName} className="mt-4 space-y-2">
-            <input
-              name="name"
-              defaultValue={family.name}
-              className="w-full rounded-xl border px-3 py-2"
-            />
-            <div className="flex gap-2">
-              <SubmitButton>Save</SubmitButton>
-              <Link href="#" className="rounded-xl border px-4 py-2">
-                Upload photo
-              </Link>
-            </div>
-          </form>
         </GlassCard>
       </div>
     </main>

@@ -13,7 +13,7 @@ export default function InviteListClient({ invites }: { invites: Invite[] }) {
       await navigator.clipboard.writeText(text);
       setCopied(id);
       setTimeout(() => setCopied(null), 1500);
-    } catch (e) {
+    } catch {
       // fallback
       const ta = document.createElement("textarea");
       ta.value = text;
@@ -39,7 +39,7 @@ export default function InviteListClient({ invites }: { invites: Invite[] }) {
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
-        <div className="text-sm text-slate-500">Invites</div>
+        <div className="text-sm dd-text-muted">Invites</div>
         {invites.length > 0 && (
           <div className="flex items-center gap-2">
             <button
@@ -50,7 +50,7 @@ export default function InviteListClient({ invites }: { invites: Invite[] }) {
                   .join("\n");
                 await copy(all, "__all__");
               }}
-              className="rounded px-2 py-1 text-xs bg-slate-100 dark:bg-slate-800"
+              className="rounded px-2 py-1 text-xs dd-btn-neutral"
             >
               Copy all
             </button>
@@ -78,7 +78,7 @@ export default function InviteListClient({ invites }: { invites: Invite[] }) {
                   <button
                     type="button"
                     onClick={() => copy(url, inv.id)}
-                    className="rounded px-2 py-1 text-xs bg-slate-100 dark:bg-slate-800"
+                    className="rounded px-2 py-1 text-xs dd-btn-neutral"
                   >
                     {copied === inv.id ? "Copied" : "Copy"}
                   </button>
@@ -87,7 +87,7 @@ export default function InviteListClient({ invites }: { invites: Invite[] }) {
             );
           })
         ) : (
-          <div className="text-sm text-slate-600">No pending invites</div>
+          <div className="text-sm dd-text-muted">No pending invites</div>
         )}
       </div>
 

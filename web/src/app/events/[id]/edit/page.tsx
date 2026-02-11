@@ -5,11 +5,12 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { updateEvent, deleteEvent } from "@/app/events/new/actions";
 
-type Props = { params: { id: string } };
+type Props = { params: Promise<{ id: string }> };
 
 export default async function EditEventPage({ params }: Props) {
+  const { id } = await params;
   const event = await prisma.specialDay.findUnique({
-    where: { id: params.id },
+    where: { id },
   });
   if (!event) return notFound();
 
@@ -29,10 +30,10 @@ export default async function EditEventPage({ params }: Props) {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto space-y-6 p-6 dd-page">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Edit Event</h1>
-        <Link href="/events" className="underline">
+        <Link href="/events" className="text-sm font-medium underline">
           Back
         </Link>
       </div>
@@ -42,7 +43,7 @@ export default async function EditEventPage({ params }: Props) {
         <input
           name="title"
           defaultValue={event.title}
-          className="rounded-xl border px-3 py-2"
+          className="rounded-xl px-3 py-2 dd-field"
           required
         />
         <label htmlFor="event-type" className="font-medium">
@@ -52,38 +53,39 @@ export default async function EditEventPage({ params }: Props) {
           id="event-type"
           name="type"
           defaultValue={event.type}
-          className="rounded-xl border px-3 py-2"
+          className="rounded-xl px-3 py-2 dd-field"
         >
           <option value="birthday">Birthday</option>
           <option value="anniversary">Anniversary</option>
           <option value="wedding">Wedding</option>
+          <option value="memorial">Memorial</option>
           <option value="other">Other</option>
         </select>
         <input
           type="date"
           name="date"
           defaultValue={new Date(event.date).toISOString().slice(0, 10)}
-          className="rounded-xl border px-3 py-2"
+          className="rounded-xl px-3 py-2 dd-field"
           required
         />
         <input
           name="person"
           defaultValue={event.person ?? ""}
-          className="rounded-xl border px-3 py-2"
+          className="rounded-xl px-3 py-2 dd-field"
         />
         <textarea
           name="notes"
           defaultValue={event.notes ?? ""}
-          className="rounded-xl border px-3 py-2"
+          className="rounded-xl px-3 py-2 dd-field"
         />
 
         <div className="flex gap-3">
-          <button className="rounded-xl border px-4 py-2 hover:opacity-90">
+          <button className="rounded-xl px-4 py-2 dd-btn-primary hover:opacity-90">
             Save
           </button>
           <button
             formAction={onDelete}
-            className="rounded-xl border px-4 py-2 text-red-600 hover:opacity-90"
+            className="rounded-xl px-4 py-2 dd-btn-danger hover:opacity-90"
           >
             Delete
           </button>

@@ -41,21 +41,21 @@ export default function SignUpPage() {
   }
 
   return (
-    <main className="mx-auto max-w-md p-6 min-h-screen flex items-center justify-center">
+    <main className="mx-auto flex min-h-screen max-w-md items-center justify-center p-6 dd-page">
       <GlassCard accent="violet" className="w-full">
         <h1 className="text-2xl font-semibold mb-2">Create Account</h1>
-        <p className="text-sm text-slate-600 mb-6">
+        <p className="mb-6 text-sm dd-text-muted">
           Sign up to get started with Dear Days
         </p>
 
         {success ? (
-          <div className="text-green-600 text-sm">
+          <div className="text-sm">
             ✅ Account created! Redirecting to login...
           </div>
         ) : (
           <form onSubmit={handleSignUp} className="space-y-4">
             {error && (
-              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
+              <div className="rounded-lg p-3 text-sm dd-card-muted">
                 {error}
               </div>
             )}
@@ -67,7 +67,7 @@ export default function SignUpPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Your name (optional)"
-                className="w-full rounded-lg border px-3 py-2 text-sm"
+                className="w-full rounded-lg px-3 py-2 text-sm dd-field"
               />
             </div>
 
@@ -79,7 +79,7 @@ export default function SignUpPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full rounded-lg border px-3 py-2 text-sm"
+                className="w-full rounded-lg px-3 py-2 text-sm dd-field"
               />
             </div>
 
@@ -91,7 +91,7 @@ export default function SignUpPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="At least 8 characters"
                 required
-                className="w-full rounded-lg border px-3 py-2 text-sm"
+                className="w-full rounded-lg px-3 py-2 text-sm dd-field"
               />
             </div>
 
@@ -105,27 +105,27 @@ export default function SignUpPage() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm password"
                 required
-                className="w-full rounded-lg border px-3 py-2 text-sm"
+                className="w-full rounded-lg px-3 py-2 text-sm dd-field"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-violet-500 text-white py-2 font-medium disabled:opacity-50"
+              className="w-full rounded-lg py-2 font-medium dd-btn-primary disabled:opacity-50"
             >
               {loading ? "Creating..." : "Sign Up"}
             </button>
           </form>
         )}
 
-        <div className="mt-6 pt-6 border-t">
-          <p className="text-sm text-slate-600 mb-3">
+        <div className="mt-6 border-t pt-6">
+          <p className="mb-3 text-sm dd-text-muted">
             Already have an account?
           </p>
           <Link
             href="/auth/login"
-            className="block text-center rounded-lg border px-3 py-2 text-sm font-medium hover:bg-slate-50"
+            className="block rounded-lg px-3 py-2 text-center text-sm font-medium dd-btn-neutral"
           >
             Sign In
           </Link>

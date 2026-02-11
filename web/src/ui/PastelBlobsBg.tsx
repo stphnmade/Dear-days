@@ -8,9 +8,7 @@ export default function PastelBlobsBg() {
       aria-hidden="true"
       className="pointer-events-none fixed inset-0 -z-0 overflow-hidden"
     >
-      {/* soft vignette so content pops */}
-      {/* softer, smaller, less opaque vignette */}
-      <div className="absolute inset-0 bg-[radial-gradient(65%_50%_at_50%_30%,rgba(255,255,255,.12),transparent_80%)] dark:bg-[radial-gradient(65%_50%_at_50%_30%,rgba(0,0,0,.12),transparent_80%)]" />
+      <div className="absolute inset-0 opacity-45 dd-card-muted" />
 
       {/* blobs */}
       <Blob

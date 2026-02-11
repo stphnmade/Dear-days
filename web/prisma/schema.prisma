@@ -83,6 +83,9 @@ model Family {
   updatedAt DateTime @updatedAt
   description String?  // NEW: optional description for the family
   timezone    String   @default("EST") // NEW: default timezone for the family members
+  allowMemberPosting Boolean @default(true)
+  calendarLabel String?
+  eventNameTemplate String? @default("{{title}}")
 
   @@index([ownerId])
 }
@@ -103,6 +106,7 @@ model FamilyMember {
 
   @@unique([familyId, joinedUserId])
   @@index([familyId])
+  @@index([joinedUserId])
 }
 
 model SpecialDay {
@@ -130,6 +134,9 @@ model SpecialDay {
   @@unique([familyId, externalId, calendarId])
   @@index([familyId])
   @@index([userId])
+  @@index([date])
+  @@index([familyId, date])
+  @@index([userId, date])
 }
 
 model Invitation {

@@ -14,9 +14,7 @@ export default function CelebrationsBg() {
       aria-hidden="true"
       className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
     >
-      {/* soft radial gradient wash */}
-      <div className="absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_30%,var(--bgGlow1),transparent_70%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(40%_30%_at_20%_80%,var(--bgGlow2),transparent_70%)]" />
+      <div className="absolute inset-0 opacity-35 dd-card-muted" />
 
       {/* sprite sheet (0×0 keeps defs only) */}
       <svg width="0" height="0" className="absolute">

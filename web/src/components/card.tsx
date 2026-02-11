@@ -14,11 +14,7 @@ export const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      // Glass + soft shape
-      "rounded-3xl border bg-white/60 dark:bg-neutral-900/50 backdrop-blur-xl",
-      // Subtle light border in both themes
-      "border-white/20 dark:border-white/10",
-      // Gentle shadow + optional hover lift
+      "rounded-3xl border dd-card",
       "shadow-sm",
       interactive && "transition-shadow hover:shadow-md",
       className
@@ -53,7 +49,7 @@ export const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn("text-sm text-neutral-600 dark:text-neutral-300", className)}
+    className={cn("text-sm dd-text-muted", className)}
     {...props}
   />
 ));

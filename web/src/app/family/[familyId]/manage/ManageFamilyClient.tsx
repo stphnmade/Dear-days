@@ -21,11 +21,9 @@ function SubmitButton() {
 }
 
 export default function ManageFamilyClient({
-  familyId,
   initial,
   action,
 }: {
-  familyId: string;
   initial: Initial;
   // action is a server action bound on the server page
   // action receives (prevState, payload) to match useActionState signature
@@ -42,7 +40,7 @@ export default function ManageFamilyClient({
 
   return (
     <form action={formAction} className="space-y-4">
-      <Card className="p-4 rounded-3xl border-white/20 bg-white/60 backdrop-blur-xl shadow-sm">
+      <Card className="p-4">
         <div className="space-y-3">
           <label className="block">
             <span className="text-sm">Name</span>
@@ -77,7 +75,7 @@ export default function ManageFamilyClient({
           </div>
 
           {state.message && (
-            <p className="text-sm text-green-700">{state.message}</p>
+            <p className="text-sm dd-text-success">{state.message}</p>
           )}
         </div>
       </Card>
