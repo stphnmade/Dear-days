@@ -19,6 +19,16 @@ model User {
   emailVerified DateTime?
   password      String?   // For email/password auth (hashed with bcrypt)
   image         String?
+  syncPaused    Boolean   @default(false)
+  conflictHandling String @default("highlight")
+  defaultEventDestination String @default("DEAR_DAYS_LOCAL")
+  syncBirthdays Boolean   @default(true)
+  syncGroupMeetings Boolean @default(true)
+  syncReminders Boolean   @default(true)
+  googlePullEnabled Boolean @default(true)
+  googlePushEnabled Boolean @default(true)
+  googleCalendarScopes String?
+  lastGlobalRefreshAt DateTime?
 
   accounts Account[]
   events   SpecialDay[] @relation("UserEvents")

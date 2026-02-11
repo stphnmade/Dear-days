@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { importGoogleSpecialDays } from "@/lib/google";
 import { getPrimaryFamilyId } from "@/lib/family";
+import { normalizeCalendarScopes } from "@/lib/connections";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    // read body to allow options (migrateAll, calendarId)
+    // read body to allow options (migrateAll, calendarId/calendarIds, dryRun, toggles)
     let body: any = {};
     try {
       body = (await req.json()) ?? {};
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
     }
 
     const migrateAll = Boolean(body.migrateAll);
-    const calendarId = body.calendarId ?? "primary";
+    const dryRun = Boolean(body.dryRun);
     const requestedFamilyId = String(body.familyId ?? "").trim();
     const fallbackFamilyId = await getPrimaryFamilyId(userId);
     const effectiveFamilyId = requestedFamilyId || fallbackFamilyId;
@@ -83,12 +84,75 @@ export async function POST(req: Request) {
       );
     }
 
+    const userPrefs = await db.user.findUnique({
+      where: { id: userId },
+      select: {
+        syncPaused: true,
+        syncBirthdays: true,
+        syncGroupMeetings: true,
+        syncReminders: true,
+        googlePullEnabled: true,
+        googleCalendarScopes: true,
+      },
+    });
+    if (!userPrefs) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    if (userPrefs.syncPaused) {
+      return NextResponse.json(
+        { error: "All syncing is currently paused." },
+        { status: 409 }
+      );
+    }
+    if (!userPrefs.googlePullEnabled) {
+      return NextResponse.json(
+        { error: "Pull from Google is disabled in your connection settings." },
+        { status: 409 }
+      );
+    }
+
+    const selectedFromBody = Array.isArray(body.calendarIds)
+      ? body.calendarIds.filter((x: unknown): x is string => typeof x === "string")
+      : [];
+    const selectedFromPrefs = normalizeCalendarScopes(userPrefs.googleCalendarScopes);
+    const calendarIds =
+      selectedFromBody.length > 0
+        ? selectedFromBody
+        : selectedFromPrefs.length > 0
+        ? selectedFromPrefs
+        : [typeof body.calendarId === "string" ? body.calendarId : "primary"];
+
+    const syncBirthdays =
+      typeof body.syncBirthdays === "boolean"
+        ? body.syncBirthdays
+        : userPrefs.syncBirthdays;
+    const syncGroupMeetings =
+      typeof body.syncGroupMeetings === "boolean"
+        ? body.syncGroupMeetings
+        : userPrefs.syncGroupMeetings;
+    const syncReminders =
+      typeof body.syncReminders === "boolean"
+        ? body.syncReminders
+        : userPrefs.syncReminders;
+
     const result = await importGoogleSpecialDays({
       userId,
       familyId: family.id,
-      calendarId,
+      calendarIds,
       migrateAll,
+      dryRun,
+      syncBirthdays,
+      syncGroupMeetings,
+      syncReminders,
     });
+
+    if (!dryRun) {
+      await db.user.update({
+        where: { id: userId },
+        data: { lastGlobalRefreshAt: new Date() },
+      });
+    }
+
     return NextResponse.json({ ok: true, result });
   } catch (err: any) {
     console.error("Import failed (API):", err);

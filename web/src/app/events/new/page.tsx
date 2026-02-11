@@ -15,7 +15,7 @@ export default async function NewEvent() {
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 dd-modal-backdrop">
+    <div className="dd-modal-root flex items-center justify-center p-4 dd-modal-backdrop">
       <div className="relative w-full max-w-md rounded-2xl p-6 shadow-xl dd-modal-panel">
         <Link
           href="/events"

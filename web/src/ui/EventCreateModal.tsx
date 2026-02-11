@@ -96,7 +96,7 @@ export default function EventCreateModal({
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 dd-modal-backdrop">
+        <div className="dd-modal-root flex items-center justify-center p-4 dd-modal-backdrop">
           <div className="w-full max-w-md rounded-2xl p-6 shadow-xl dd-modal-panel">
             <div className="mb-4 flex items-center justify-between gap-4">
               <h2 className="text-xl font-semibold">{title}</h2>

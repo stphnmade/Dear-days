@@ -205,6 +205,56 @@ Acceptance criteria:
 - When member posting is disabled, member attempts to add group events are blocked with clear error
 - iCal output reflects customized label/template
 
+### 4.10 Connection Settings Dashboard
+
+Requirements:
+
+- Connections uses a two-column settings layout:
+  - Left: navigation tabs (`Connected Accounts`, `Privacy & Permissions`, `Export Data`, `Notification Triggers`)
+  - Right: integration work area cards
+- Header is a `Global Sync Dashboard` with:
+  - master toggle: `Pause All Syncing`
+  - sync health pulse: `All 3 calendars are healthy` style status + last global refresh timestamp
+- Integration cards support active/inactive state for:
+  - Google Calendar
+  - Apple Calendar (via feed subscription)
+  - Outlook (via feed subscription)
+- Google card must support:
+  - manage scopes (choose Google sub-calendars)
+  - two-way controls (`Push to Google`, `Pull from Google`)
+  - granular import toggles (`Birthdays`, `Group Meetings`, `Reminders`)
+  - dry-run preview (`Preview Sync Changes`) before full sync
+- iCal card must support:
+  - inbound URL verify before import
+  - duplicate detection + merge prompt
+  - outbound secret feed copy for Apple/Outlook/native calendar apps
+- Privacy/permissions controls include:
+  - conflict handling: `highlight`, `hide overlaps`, `ignore`
+  - default event destination: `Dear Days Local`, `Google Primary`, `Group Shared`
+
+Acceptance criteria:
+
+- User can pause/resume all syncing without leaving Connections
+- User can preview iCal/Google sync impact before write
+- User can choose specific Google sub-calendars to sync
+- Pull sync respects granular category toggles
+- Default event destination is persisted and used in event creation flow
+- Empty state is visible when no integration is connected
+
+### 4.11 Google Webhook Sync
+
+Requirements:
+
+- System can register a Google Calendar watch channel for connected users
+- Incoming webhook pings trigger background/in-process pull sync (respecting sync pause and pull toggle)
+- Webhook endpoint validates channel/resource identity and channel token secret
+
+Acceptance criteria:
+
+- Watch registration stores `channelId` and `resourceId`
+- Webhook requests do not crash app when malformed or stale
+- On valid webhook event, Dear Days refreshes Google-imported rows for the user context
+
 ## 5) MVP Deliverables
 
 ### 5.1 Functional Deliverables

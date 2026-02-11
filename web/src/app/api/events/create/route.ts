@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { specialDaySchema } from "@/lib/validation";
 import { getPrimaryFamilyId } from "@/lib/family";
+import { pushSpecialDayToGoogle } from "@/lib/google";
+import { normalizeDefaultDestination } from "@/lib/connections";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -33,11 +35,35 @@ export async function POST(req: Request) {
     );
   }
 
-  const scope = payload.scope === "family" ? "family" : "personal";
+  const userPrefs = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      syncPaused: true,
+      googlePushEnabled: true,
+      defaultEventDestination: true,
+    },
+  });
+  if (!userPrefs) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const requestedScope =
+    payload.scope === "family"
+      ? "family"
+      : payload.scope === "personal"
+      ? "personal"
+      : null;
+  const defaultDestination = normalizeDefaultDestination(
+    userPrefs.defaultEventDestination
+  );
+  const scope =
+    requestedScope ??
+    (defaultDestination === "GROUP_SHARED" ? "family" : "personal");
   const targetFamilyId =
     typeof payload.targetFamilyId === "string" ? payload.targetFamilyId.trim() : "";
 
   let familyId: string | undefined;
+  let resolvedFamilyGoogleCalendarId: string | null = null;
   if (scope === "family") {
     const fallbackFamilyId = await getPrimaryFamilyId(userId);
     const effectiveFamilyId = targetFamilyId || fallbackFamilyId;
@@ -45,15 +71,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No group selected." }, { status: 400 });
     }
 
-    let family: { id: string; ownerId: string; allowMemberPosting: boolean } | null =
-      null;
+    let family:
+      | {
+          id: string;
+          ownerId: string;
+          allowMemberPosting: boolean;
+          googleCalendarId: string | null;
+        }
+      | null = null;
     try {
       family = await prisma.family.findFirst({
         where: {
           id: effectiveFamilyId,
           OR: [{ ownerId: userId }, { members: { some: { joinedUserId: userId } } }],
         },
-        select: { id: true, ownerId: true, allowMemberPosting: true },
+        select: {
+          id: true,
+          ownerId: true,
+          allowMemberPosting: true,
+          googleCalendarId: true,
+        },
       });
     } catch (error: any) {
       const msg = String(error?.message ?? "");
@@ -66,7 +103,7 @@ export async function POST(req: Request) {
         select: { id: true, ownerId: true },
       });
       family = legacyFamily
-        ? { ...legacyFamily, allowMemberPosting: true }
+        ? { ...legacyFamily, allowMemberPosting: true, googleCalendarId: null }
         : null;
     }
     if (!family) {
@@ -83,6 +120,7 @@ export async function POST(req: Request) {
       );
     }
     familyId = family.id;
+    resolvedFamilyGoogleCalendarId = family.googleCalendarId ?? null;
   }
 
   const { title, type, date, person, notes } = parsed.data;
@@ -101,6 +139,26 @@ export async function POST(req: Request) {
     },
     select: { id: true },
   });
+
+  const shouldPushToGoogle =
+    userPrefs.googlePushEnabled &&
+    !userPrefs.syncPaused &&
+    defaultDestination !== "DEAR_DAYS_LOCAL";
+  if (shouldPushToGoogle) {
+    const calendarId =
+      defaultDestination === "GOOGLE_PRIMARY"
+        ? "primary"
+        : resolvedFamilyGoogleCalendarId ?? "primary";
+    try {
+      await pushSpecialDayToGoogle({
+        userId,
+        specialDayId: created.id,
+        calendarId,
+      });
+    } catch (error) {
+      console.error("event push to google failed", error);
+    }
+  }
 
   return NextResponse.json({ ok: true, id: created.id });
 }

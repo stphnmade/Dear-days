@@ -24,6 +24,7 @@ export async function getUpcomingEvents(userId: string, limit = 6) {
       person: true,
       familyId: true,
       userId: true,
+      source: true,
     },
   });
 }

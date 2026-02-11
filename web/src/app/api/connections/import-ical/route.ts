@@ -15,6 +15,8 @@ type ImportBody = {
   url?: string;
   importAll?: boolean;
   familyId?: string;
+  dryRun?: boolean;
+  mergeMode?: "merge" | "skip";
 };
 
 export async function POST(req: Request) {
@@ -83,6 +85,8 @@ export async function POST(req: Request) {
 
   let icsText = (body.text ?? "").trim();
   const importAll = Boolean(body.importAll);
+  const dryRun = Boolean(body.dryRun);
+  const mergeMode = body.mergeMode === "merge" ? "merge" : "skip";
 
   if (!icsText && body.url) {
     try {
@@ -120,54 +124,139 @@ export async function POST(req: Request) {
     );
   }
 
+  const candidates = parsed.filter((event) => {
+    if (!importAll && !event.looksSpecial && !event.recurringYearly) return false;
+    return true;
+  });
+
+  if (!candidates.length) {
+    return NextResponse.json({
+      ok: true,
+      result: { total: parsed.length, importable: 0, created: 0, updated: 0, skipped: parsed.length, duplicates: 0 },
+      preview: true,
+    });
+  }
+
+  const minDate = new Date(
+    Math.min(...candidates.map((c) => c.date.getTime())) - 24 * 60 * 60 * 1000
+  );
+  const maxDate = new Date(
+    Math.max(...candidates.map((c) => c.date.getTime())) + 24 * 60 * 60 * 1000
+  );
+
+  const existingRows = await db.specialDay.findMany({
+    where: {
+      familyId,
+      date: { gte: minDate, lte: maxDate },
+    },
+    select: {
+      id: true,
+      title: true,
+      date: true,
+      externalId: true,
+      calendarId: true,
+      notes: true,
+      person: true,
+      type: true,
+    },
+  });
+
+  const existingByExternal = new Map<string, (typeof existingRows)[number]>();
+  const existingByKey = new Map<string, (typeof existingRows)[number]>();
+  for (const row of existingRows) {
+    if (row.externalId && row.calendarId === "ical-import") {
+      existingByExternal.set(row.externalId, row);
+    }
+    const key = `${(row.title ?? "").trim().toLowerCase()}|${row.date
+      .toISOString()
+      .slice(0, 10)}`;
+    if (!existingByKey.has(key)) existingByKey.set(key, row);
+  }
+
+  const enriched = candidates.map((event) => {
+    const externalId = stableIcalExternalId(event);
+    const title = event.summary || "Imported event";
+    const key = `${title.trim().toLowerCase()}|${event.date.toISOString().slice(0, 10)}`;
+    return { event, externalId, title, key };
+  });
+
+  const duplicates = enriched.filter(
+    (entry) =>
+      !existingByExternal.has(entry.externalId) && existingByKey.has(entry.key)
+  ).length;
+
+  if (dryRun) {
+    return NextResponse.json({
+      ok: true,
+      preview: true,
+      result: {
+        total: parsed.length,
+        importable: enriched.length,
+        created: 0,
+        updated: 0,
+        skipped: parsed.length - enriched.length,
+        duplicates,
+      },
+    });
+  }
+
+  if (duplicates > 0 && mergeMode !== "merge") {
+    return NextResponse.json(
+      {
+        error: `We found ${duplicates} potential duplicate event${duplicates === 1 ? "" : "s"}. Merge them?`,
+        code: "DUPLICATES_FOUND",
+        duplicates,
+      },
+      { status: 409 }
+    );
+  }
+
   const stats = {
     total: parsed.length,
+    importable: enriched.length,
     created: 0,
     updated: 0,
     skipped: 0,
+    duplicates,
   };
 
-  for (const event of parsed) {
-    if (!importAll && !event.looksSpecial && !event.recurringYearly) {
-      stats.skipped++;
-      continue;
-    }
+  stats.skipped = parsed.length - enriched.length;
 
-    const externalId = stableIcalExternalId(event);
-    const existing = await db.specialDay.findUnique({
-      where: {
-        familyId_externalId_calendarId: {
-          familyId,
-          externalId,
-          calendarId: "ical-import",
-        },
-      },
-      select: { id: true },
-    });
+  for (const item of enriched) {
+    const mergeTarget =
+      existingByExternal.get(item.externalId) ??
+      (mergeMode === "merge" ? existingByKey.get(item.key) : undefined);
 
-    const data = {
+    const baseData = {
       familyId,
       userId,
-      title: event.summary || "Imported event",
-      type: inferSpecialType(event.summary),
-      date: event.date,
-      person: derivePerson(event.summary) ?? undefined,
-      notes: event.description
-        ? `${event.description}\n\nImported from iCal`
+      title: item.title,
+      type: inferSpecialType(item.title),
+      date: item.event.date,
+      person: derivePerson(item.title) ?? undefined,
+      notes: item.event.description
+        ? `${item.event.description}\n\nImported from iCal`
         : "Imported from iCal",
       source: "MANUAL" as const,
-      externalId,
-      calendarId: "ical-import",
     };
 
-    if (existing) {
+    if (mergeTarget) {
       await db.specialDay.update({
-        where: { id: existing.id },
-        data,
+        where: { id: mergeTarget.id },
+        data: {
+          ...baseData,
+          ...(mergeTarget.externalId ? {} : { externalId: item.externalId, calendarId: "ical-import" }),
+        },
       });
       stats.updated++;
     } else {
-      await db.specialDay.create({ data });
+      await db.specialDay.create({
+        data: {
+          ...baseData,
+          externalId: item.externalId,
+          calendarId: "ical-import",
+        },
+      });
       stats.created++;
     }
   }

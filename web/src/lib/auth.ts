@@ -15,6 +15,15 @@ declare module "next-auth" {
 }
 
 const isDev = process.env.NODE_ENV !== "production";
+const googleScopes =
+  process.env.GOOGLE_OAUTH_SCOPES ||
+  [
+    "openid",
+    "email",
+    "profile",
+    "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/calendar.readonly",
+  ].join(" ");
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -26,7 +35,7 @@ export const authOptions: NextAuthOptions = {
       allowDangerousEmailAccountLinking: isDev, // dev convenience
       authorization: {
         params: {
-          scope: process.env.GOOGLE_OAUTH_SCOPES!,
+          scope: googleScopes,
           access_type: "offline",
           prompt: "consent",
         },
