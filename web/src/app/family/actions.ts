@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 
 function sanitizeEventTemplate(input: string | null | undefined) {
@@ -13,6 +14,10 @@ function sanitizeEventTemplate(input: string | null | undefined) {
   if (!normalized.includes("{{title}}")) return `${normalized} {{title}}`;
   return normalized;
 }
+
+export type DeleteFamilyState = {
+  error: string | null;
+};
 
 export async function updateFamily(familyId: string, formData: FormData) {
   const session = await getServerSession(authOptions);
@@ -127,4 +132,36 @@ export async function leaveFamily(familyId: string) {
   revalidatePath("/family");
   revalidatePath("/dashboard");
   revalidatePath("/connections");
+}
+
+export async function deleteFamily(
+  familyId: string,
+  _prevState: DeleteFamilyState,
+  formData: FormData
+): Promise<DeleteFamilyState> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return { error: "Unauthorized" };
+  const userId = (session.user as any).id as string;
+
+  const family = await prisma.family.findUnique({
+    where: { id: familyId },
+    select: { id: true, ownerId: true },
+  });
+  if (!family) return { error: "Group not found" };
+  if (family.ownerId !== userId) return { error: "Only owners can delete this group" };
+
+  const confirmationPhrase = String(formData.get("confirmationPhrase") || "")
+    .trim()
+    .toLowerCase();
+  if (confirmationPhrase !== "delete group") {
+    return { error: "Type \"delete group\" to confirm deletion." };
+  }
+
+  await prisma.family.delete({ where: { id: familyId } });
+
+  revalidatePath("/family");
+  revalidatePath("/dashboard");
+  revalidatePath("/connections");
+  revalidatePath("/events");
+  redirect("/family");
 }

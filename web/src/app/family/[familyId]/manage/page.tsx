@@ -4,8 +4,9 @@ import ServerForm from "./ServerForm";
 import Link from "next/link";
 import { getAuthSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { removeFamilyMember } from "../../actions";
+import { deleteFamily, removeFamilyMember } from "../../actions";
 import SubmitButton from "@/ui/SubmitButton";
+import DeleteGroupCard from "./DeleteGroupCard";
 
 export default async function ManageFamilyPage({
   params,
@@ -31,6 +32,7 @@ export default async function ManageFamilyPage({
   if (family.ownerId !== userId) {
     redirect(`/family?familyId=${family.id}`);
   }
+  const deleteAction = deleteFamily.bind(null, family.id);
 
   return (
     <main className="mx-auto max-w-5xl space-y-4 p-6 dd-page">
@@ -81,6 +83,8 @@ export default async function ManageFamilyPage({
             ))}
         </div>
       </section>
+
+      <DeleteGroupCard groupName={family.name} action={deleteAction} />
     </main>
   );
 }
