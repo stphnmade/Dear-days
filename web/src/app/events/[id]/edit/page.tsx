@@ -5,15 +5,47 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { updateEvent, deleteEvent } from "@/app/events/new/actions";
 import { toOptionalTimeInputValue } from "@/lib/event-datetime";
+import { getAuthSession } from "@/lib/auth";
 
 type Props = { params: Promise<{ id: string }> };
 
 export default async function EditEventPage({ params }: Props) {
+  const session = await getAuthSession();
+  if (!session?.user) redirect("/");
+  const userId = (session.user as any).id as string;
+
   const { id } = await params;
   const event = await prisma.specialDay.findUnique({
     where: { id },
+    include: {
+      family: {
+        select: {
+          ownerId: true,
+          allowMemberPosting: true,
+          members: {
+            where: { joinedUserId: userId },
+            select: { id: true },
+            take: 1,
+          },
+        },
+      },
+    },
   });
   if (!event) return notFound();
+
+  const isFamilyOwner = event.family?.ownerId === userId;
+  const isFamilyMember = (event.family?.members.length ?? 0) > 0;
+  const canAccess = event.familyId
+    ? isFamilyOwner ||
+      (isFamilyMember && Boolean(event.family?.allowMemberPosting))
+    : event.userId === userId;
+  const canDelete = event.familyId
+    ? isFamilyOwner ||
+      (isFamilyMember &&
+        event.userId === userId &&
+        Boolean(event.family?.allowMemberPosting))
+    : event.userId === userId;
+  if (!canAccess) return notFound();
 
   async function onUpdate(formData: FormData) {
     "use server";
@@ -98,12 +130,14 @@ export default async function EditEventPage({ params }: Props) {
             <button className="rounded-xl px-4 py-2 dd-btn-primary hover:opacity-90">
               Save
             </button>
-            <button
-              formAction={onDelete}
-              className="rounded-xl px-4 py-2 dd-btn-danger hover:opacity-90"
-            >
-              Delete
-            </button>
+            {canDelete ? (
+              <button
+                formAction={onDelete}
+                className="rounded-xl px-4 py-2 dd-btn-danger hover:opacity-90"
+              >
+                Delete
+              </button>
+            ) : null}
           </div>
         </form>
       </div>

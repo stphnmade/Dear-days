@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getUserGroups } from "@/lib/family";
+import { nextSpecialDayOccurrence } from "@/lib/special-day-occurrences";
 import FamilyCalendar from "@/ui/FamilyCalendar";
 import EventCreateModal from "@/ui/EventCreateModal";
 
@@ -32,10 +33,17 @@ export default async function FamilyCalendarPage({
     select: {
       id: true,
       title: true,
+      type: true,
       date: true,
       person: true,
     },
   });
+  const projectedEvents = events
+    .map((event) => ({
+      ...event,
+      date: nextSpecialDayOccurrence(event.date, event.type),
+    }))
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
 
   const groupOptions = groups.map((g) => ({
     id: g.id,
@@ -73,7 +81,7 @@ export default async function FamilyCalendarPage({
       </div>
 
       <div className="mt-6">
-        <FamilyCalendar events={events} />
+        <FamilyCalendar events={projectedEvents} />
       </div>
     </main>
   );
