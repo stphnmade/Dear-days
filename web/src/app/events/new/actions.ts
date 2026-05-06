@@ -185,9 +185,7 @@ export async function updateEvent(formData: FormData) {
   const isMember = (evt.family?.members.length ?? 0) > 0;
   const canUpdate = evt.familyId
     ? isOwner ||
-      (isMember &&
-        evt.userId === userId &&
-        Boolean(evt.family?.allowMemberPosting))
+      (isMember && Boolean(evt.family?.allowMemberPosting))
     : evt.userId === userId;
   if (!canUpdate) throw new Error("Forbidden");
 

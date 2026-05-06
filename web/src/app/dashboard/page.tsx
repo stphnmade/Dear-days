@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getAuthSession } from "@/lib/auth";
 import { getCounts } from "@/lib/queries";
 import { getUserGroups } from "@/lib/family";
+import { nextSpecialDayOccurrence } from "@/lib/special-day-occurrences";
 
 import OccasionIconsBg from "@/ui/OccasionIconsBg";
 import DashboardCommandCenter from "@/ui/dashboard/DashboardCommandCenter";
@@ -114,11 +115,11 @@ export default async function Dashboard() {
         id: event.id,
         title: event.title,
         type: event.type,
-        date: event.date.toISOString(),
+        date: nextSpecialDayOccurrence(event.date, event.type).toISOString(),
         person: event.person,
         familyId: event.familyId,
         source: event.source,
-      }));
+      })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }
   } catch (error) {
     console.error("dashboard data error", error);

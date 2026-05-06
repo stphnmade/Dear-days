@@ -1,6 +1,7 @@
 // src/lib/queries.ts
 import { prisma } from "@/lib/db";
 import { getAccessibleFamilyIds } from "@/lib/family";
+import { nextSpecialDayOccurrence } from "@/lib/special-day-occurrences";
 
 /** Upcoming events (both personal and family), soonest first. */
 export async function getUpcomingEvents(userId: string, limit = 6) {
@@ -9,13 +10,12 @@ export async function getUpcomingEvents(userId: string, limit = 6) {
     ? [{ userId }, { familyId: { in: familyIds } }]
     : [{ userId }];
 
-  return prisma.specialDay.findMany({
+  const events = await prisma.specialDay.findMany({
     where: {
       OR: orFilters,
-      date: { gte: new Date() },
     },
-    orderBy: { date: "asc" },
-    take: limit,
+    orderBy: { date: "desc" },
+    take: 500,
     select: {
       id: true,
       title: true,
@@ -27,6 +27,15 @@ export async function getUpcomingEvents(userId: string, limit = 6) {
       source: true,
     },
   });
+
+  return events
+    .map((event) => ({
+      ...event,
+      date: nextSpecialDayOccurrence(event.date, event.type),
+    }))
+    .filter((event) => event.date >= new Date())
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .slice(0, limit);
 }
 
 /** Count summary for the dashboard. */

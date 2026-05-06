@@ -1,89 +1,155 @@
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { PrismaClient } from "@prisma/client";
-import { google } from "googleapis";
+import { db } from "@/lib/db";
+import { normalizeCalendarScopes } from "@/lib/connections";
+import { getPrimaryFamilyId } from "@/lib/family";
+import { importGoogleSpecialDays } from "@/lib/google";
 
-const prisma = new PrismaClient();
-
-export async function POST() {
+export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email)
-    return new Response("Unauthorized", { status: 401 });
-
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email! },
-    include: { accounts: true },
-  });
-  if (!user) return new Response("No user", { status: 404 });
-
-  const googleAcct = user.accounts.find((a) => a.provider === "google");
-  if (googleAcct?.access_token) {
-    const auth = new google.auth.OAuth2();
-    auth.setCredentials({
-      access_token: googleAcct.access_token,
-      refresh_token: googleAcct.refresh_token ?? undefined,
-    });
-    const cal = google.calendar({ version: "v3", auth });
-    const now = new Date().toISOString();
-    const res = await cal.events.list({
-      calendarId: "primary",
-      timeMin: now, // start with upcoming; broaden later
-      maxResults: 200,
-      singleEvents: true,
-      orderBy: "startTime",
-    });
-
-    // Patch: No families relation on user, so skip familyId logic
-    const toSave = (res.data.items ?? [])
-      .filter((e) => isSpecialDay(e)) // simple heuristic
-      .map((e) => ({
-        userId: user.id,
-        title: e.summary ?? "Untitled",
-        date: new Date(normalizeDate(e)),
-        type: "custom",
-        source: "GOOGLE" as any, // Patch: assign enum value
-        externalId: e.id ?? undefined,
-        calendarId: "primary",
-      }));
-    for (const d of toSave) {
-      await prisma.specialDay.upsert({
-        where: {
-          familyId_externalId_calendarId: {
-            familyId: "", // Patch: set to empty string for missing family context
-            externalId: d.externalId!,
-            calendarId: d.calendarId!,
-          },
-        },
-        update: {
-          userId: d.userId,
-          title: d.title,
-          date: d.date,
-          type: d.type,
-          source: d.source,
-          externalId: d.externalId,
-          calendarId: d.calendarId,
-        },
-        create: {
-          userId: d.userId,
-          title: d.title,
-          date: d.date,
-          type: d.type,
-          source: d.source,
-          externalId: d.externalId,
-          calendarId: d.calendarId,
-        },
-      });
-    }
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  return new Response(JSON.stringify({ ok: true }), { status: 200 });
-}
+  const userId = session.user.id;
 
-function isSpecialDay(e: any) {
-  const summary = (e.summary ?? "").toLowerCase();
-  return ["birthday", "anniversary"].some((k) => summary.includes(k));
-}
-function normalizeDate(e: any) {
-  const s = e.start?.date || e.start?.dateTime || new Date().toISOString();
-  return s.substring(0, 10) + "T00:00:00.000Z";
+  try {
+    const googleAccount = await db.account.findFirst({
+      where: { userId, provider: "google" },
+      select: { id: true },
+    });
+    if (!googleAccount) {
+      return NextResponse.json(
+        { error: "Google account not connected" },
+        { status: 400 }
+      );
+    }
+
+    let body: any = {};
+    try {
+      body = (await req.json()) ?? {};
+    } catch {
+      body = {};
+    }
+
+    const requestedFamilyId = String(body.familyId ?? "").trim();
+    const familyId = requestedFamilyId || (await getPrimaryFamilyId(userId));
+    if (!familyId) {
+      return NextResponse.json(
+        { error: "No group selected for Google sync" },
+        { status: 400 }
+      );
+    }
+
+    const family = await db.family.findFirst({
+      where: {
+        id: familyId,
+        OR: [
+          { ownerId: userId },
+          { members: { some: { joinedUserId: userId } } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (!family) {
+      return NextResponse.json(
+        { error: "You do not have access to this group" },
+        { status: 403 }
+      );
+    }
+
+    const userPrefs = await db.user.findUnique({
+      where: { id: userId },
+      select: {
+        syncPaused: true,
+        syncBirthdays: true,
+        syncGroupMeetings: true,
+        syncReminders: true,
+        googlePullEnabled: true,
+        googleCalendarScopes: true,
+      },
+    });
+    if (!userPrefs) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    if (userPrefs.syncPaused) {
+      return NextResponse.json(
+        { error: "All syncing is currently paused." },
+        { status: 409 }
+      );
+    }
+    if (!userPrefs.googlePullEnabled) {
+      return NextResponse.json(
+        { error: "Pull from Google is disabled in your connection settings." },
+        { status: 409 }
+      );
+    }
+
+    const selectedFromBody = Array.isArray(body.calendarIds)
+      ? body.calendarIds.filter(
+          (value: unknown): value is string => typeof value === "string"
+        )
+      : [];
+    const selectedFromPrefs = normalizeCalendarScopes(
+      userPrefs.googleCalendarScopes
+    );
+    const calendarIds =
+      selectedFromBody.length > 0
+        ? selectedFromBody
+        : selectedFromPrefs.length > 0
+        ? selectedFromPrefs
+        : [typeof body.calendarId === "string" ? body.calendarId : "primary"];
+
+    const dryRun = Boolean(body.dryRun);
+    const result = await importGoogleSpecialDays({
+      userId,
+      familyId: family.id,
+      calendarIds,
+      migrateAll: Boolean(body.migrateAll),
+      dryRun,
+      syncBirthdays:
+        typeof body.syncBirthdays === "boolean"
+          ? body.syncBirthdays
+          : userPrefs.syncBirthdays,
+      syncGroupMeetings:
+        typeof body.syncGroupMeetings === "boolean"
+          ? body.syncGroupMeetings
+          : userPrefs.syncGroupMeetings,
+      syncReminders:
+        typeof body.syncReminders === "boolean"
+          ? body.syncReminders
+          : userPrefs.syncReminders,
+    });
+
+    if (!dryRun) {
+      await db.user.update({
+        where: { id: userId },
+        data: { lastGlobalRefreshAt: new Date() },
+      });
+    }
+
+    return NextResponse.json({ ok: true, result });
+  } catch (error: any) {
+    console.error("Manual sync failed:", error);
+    const message = error?.message ?? String(error);
+    if (
+      typeof message === "string" &&
+      message.toLowerCase().includes("invalid_grant")
+    ) {
+      await db.account.updateMany({
+        where: { userId, provider: "google" },
+        data: { access_token: null, refresh_token: null, expires_at: null },
+      });
+      return NextResponse.json(
+        {
+          error:
+            "invalid_grant: refresh token invalid or revoked. Please reconnect Google.",
+        },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
